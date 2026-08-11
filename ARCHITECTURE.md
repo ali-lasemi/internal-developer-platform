@@ -1,66 +1,69 @@
-# Internal Developer Platform Architecture
+﻿# Architecture Overview
 
-## Overview
+## Purpose
 
-The Internal Developer Platform (IDP) provides a self-service platform for developers to build, deploy, and operate applications.
+Describe the architecture of the Internal Developer Platform.
 
-The platform follows a cloud-native and GitOps-first architecture.
+## Architecture Layers
 
-## Core Principles
 
-- Developer self-service
-- Infrastructure automation
-- GitOps workflows
-- Security by default
-- Observability by design
-- Production reliability
+Experience Layer
 
-## High Level Architecture
+Responsible for developer interaction.
 
-Developer
-    |
-    v
-Developer Portal
-    |
-    v
-Platform API
-    |
-    +---- Git Repository
-    |
-    +---- CI/CD Pipeline
-    |
-    +---- Kubernetes Platform
-    |
-    +---- Observability Stack
+Components:
 
-## Platform Components
+- Developer Portal
+- Service Catalog
+- Templates
 
-### Developer Experience
 
-- Service catalog
-- Golden path templates
-- Self-service workflows
+Platform Layer
 
-### Infrastructure
+Responsible for orchestration.
+
+Components:
+
+- Platform API
+- Automation Engine
+- Workflow Management
+
+
+Delivery Layer
+
+Responsible for software delivery.
+
+Components:
+
+- CI/CD
+- GitOps
+- Deployment workflows
+
+
+Runtime Layer
+
+Responsible for application execution.
+
+Components:
 
 - Kubernetes
-- Helm
-- Terraform
-- ArgoCD
+- Infrastructure
 
-### Security
 
-- RBAC
-- Secrets management
-- Policy enforcement
+Operations Layer
 
-### Observability
+Responsible for reliability.
 
-- Metrics
-- Logs
-- Traces
-- Alerting
+Components:
 
-## Design Goal
+- Monitoring
+- Logging
+- Security
 
-Create a production-grade Internal Developer Platform that enables teams to ship reliable software faster.
+
+## Design Goals
+
+- Fast developer onboarding
+- Reliable delivery
+- Automated operations
+- Scalable engineering practices

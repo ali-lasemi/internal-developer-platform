@@ -1,27 +1,53 @@
-# Contributing Guide
+﻿# Contributing Guide
 
 ## Development Workflow
 
-1. Create a feature branch
-2. Make changes
-3. Validate locally
-4. Create pull request
+1. Create an issue
+2. Create a feature branch
+3. Implement changes
+4. Update documentation
+5. Submit pull request
+
+
+## Branch Naming
+
+Examples:
+
+feature/developer-portal
+
+feature/service-catalog
+
+fix/api-validation
+
 
 ## Commit Convention
 
-Use conventional commits:
+feat: new functionality
 
-- feat:
-- fix:
-- docs:
-- chore:
-- refactor:
+fix: bug fix
 
-## Quality Standards
+docs: documentation
 
-All contributions should follow:
+refactor: code improvement
 
-- Clean architecture
-- Security best practices
-- Production readiness
-- Documentation requirements
+chore: maintenance
+
+
+## Pull Request Requirements
+
+Every pull request should contain:
+
+- Related issue
+- Description
+- Testing information
+- Documentation updates
+
+
+## Engineering Standards
+
+All changes should consider:
+
+- Scalability
+- Security
+- Maintainability
+- Developer experience

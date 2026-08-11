@@ -1,10 +1,16 @@
-# Changelog
+﻿# Changelog
 
 ## Unreleased
 
-### Added
+Added:
 
-- Initial production-grade platform foundation
-- Repository architecture
-- Platform roadmap
+- Product documentation foundation
+- Platform architecture documentation
+- Developer workflow documentation
 
+
+## Versioning
+
+This project follows Semantic Versioning.
+
+MAJOR.MINOR.PATCH
