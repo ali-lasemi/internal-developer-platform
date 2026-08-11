@@ -1,20 +1,41 @@
 ﻿# Platform API
 
-Core control plane API.
+## Role
 
-Responsibilities:
+The Platform API is the control plane of the Internal Developer Platform.
 
-- Manage services
-- Manage templates
-- Manage environments
-- Trigger workflows
+It connects developer experiences with platform capabilities.
 
-Architecture:
+## Responsibilities
+
+- Service management
+- Template orchestration
+- Workflow execution
+- Environment management
+- Platform automation
+
+
+## Architecture
 
 Developer Portal
-        |
-        v
+
+↓
+
 Platform API
-        |
-        v
-Automation Services
+
+↓
+
+Domain Services
+
+↓
+
+Automation Engines
+
+
+## Design Principles
+
+- API first
+- Domain driven design
+- Clear ownership
+- Extensible workflows
+- Observable operations
