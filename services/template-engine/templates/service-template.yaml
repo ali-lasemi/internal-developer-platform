@@ -1,0 +1,9 @@
+﻿name: backend-service-template
+version: "1.0"
+description: Production backend service golden path
+
+features:
+  - repository
+  - ci-pipeline
+  - documentation
+  - ownership

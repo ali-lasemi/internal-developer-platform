@@ -1,45 +1,29 @@
-﻿# Template Engine Service
+﻿# Template Engine
 
 ## Purpose
 
-The Template Engine is the Golden Path execution system of the Internal Developer Platform.
-
-It enables developers to create standardized production-ready services through reusable templates.
+The Template Engine provides golden path templates for creating standardized production-ready services.
 
 
 ## Responsibilities
 
-- Template management
-- Template validation
-- Project generation
-- Configuration injection
-- Repository initialization
+- Manage templates
+- Provide service blueprints
+- Generate project foundations
+- Standardize engineering workflows
 
 
-## Product Value
+## MVP Capabilities
 
-The Template Engine reduces the effort required to start new services.
-
-Developers receive:
-
-- Standard structure
-- Best practices
-- Automated configuration
-- Production readiness
+- List templates
+- Register templates
+- Retrieve template metadata
 
 
-## Supported Template Types
+## Future
 
-- Backend Service
-- API Service
-- Worker Service
-- Scheduled Job
-- Frontend Application
-
-
-## Future Capabilities
-
+- Repository generation
+- Variable injection
+- Workflow integration
+- Policy validation
 - Template marketplace
-- Template version management
-- Template analytics
-- Automatic upgrades
