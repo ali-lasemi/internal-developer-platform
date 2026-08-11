@@ -2,19 +2,30 @@
 
 ## Purpose
 
-Central identity and access management capability for the platform.
+The Identity Service provides user and team identity capabilities for the Internal Developer Platform.
+
+It is the foundation for authentication context, ownership and access decisions.
+
 
 ## Responsibilities
 
-- User authentication
-- Team identity
-- Service ownership identity
-- Access management
+- User identity management
+- Team ownership context
+- Identity information
+- Platform access foundation
 
 
-## Future Capabilities
+## MVP Capabilities
 
-- OAuth integration
-- Single Sign-On
-- Role management
-- Permission policies
+- User registration model
+- Identity lookup
+- Team ownership information
+
+
+## Future
+
+- Authentication provider integration
+- Role based access control
+- Single sign-on
+- Permission management
+- Audit integration
