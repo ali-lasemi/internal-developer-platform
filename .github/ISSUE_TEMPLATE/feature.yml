@@ -1,0 +1,11 @@
+name: Feature Request
+description: Product feature request
+title: "[FEATURE] "
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the feature
+    validations:
+      required: true
