@@ -1,9 +1,18 @@
-# Developer Portal
+﻿# Developer Portal
 
-Self-service interface for developers.
+The primary user interface of the Internal Developer Platform.
 
-Capabilities:
+Responsibilities:
 
-- Service catalog
-- Templates
-- Workflows
+- Service discovery
+- Service creation
+- Developer workflows
+- Platform interaction
+
+Future capabilities:
+
+- Web interface
+- CLI integration
+- API integration
+- Authentication
+- Service ownership
