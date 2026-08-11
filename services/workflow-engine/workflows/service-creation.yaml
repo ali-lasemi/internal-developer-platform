@@ -1,0 +1,10 @@
+﻿name: service-creation
+
+description: Create a new application service
+
+steps:
+  - validate-input
+  - create-repository
+  - apply-template
+  - register-service
+  - notify-user

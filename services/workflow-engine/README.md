@@ -1,10 +1,10 @@
-﻿# Workflow Engine Service
+﻿# Workflow Engine
 
 ## Purpose
 
-The Workflow Engine executes internal developer platform workflows.
+The Workflow Engine executes automated engineering workflows inside the Internal Developer Platform.
 
-It converts platform actions into reliable automated processes.
+It coordinates platform actions and provides visibility into execution progress.
 
 
 ## Responsibilities
@@ -12,29 +12,21 @@ It converts platform actions into reliable automated processes.
 - Workflow definition
 - Workflow execution
 - Execution tracking
-- Retry management
-- Failure handling
-- Event publishing
+- Status management
+- Automation coordination
 
 
-## Product Value
+## MVP Capabilities
 
-The Workflow Engine enables developers to complete complex operations through simple platform actions.
-
-
-Examples:
-
-- Create service
-- Generate repository
-- Configure environment
-- Deploy application
-- Update lifecycle state
+- Register workflow
+- List workflows
+- Trigger workflow execution
 
 
-## Future Capabilities
+## Future
 
-- Visual workflow builder
-- Workflow analytics
-- Conditional execution
-- Human approval steps
-- Workflow marketplace
+- Event driven execution
+- Retry handling
+- Approval steps
+- Policy integration
+- Workflow visualization
