@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: service-template
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: service-template
+
+  template:
+    metadata:
+      labels:
+        app: service-template
+
+    spec:
+      containers:
+        - name: app
+          image: service-template:latest
