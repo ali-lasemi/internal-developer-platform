@@ -1,41 +1,33 @@
 ﻿# Platform API
 
-## Role
+## Purpose
 
-The Platform API is the control plane of the Internal Developer Platform.
+The central API layer of the Internal Developer Platform.
 
-It connects developer experiences with platform capabilities.
+The Platform API provides programmatic access to platform capabilities.
+
 
 ## Responsibilities
 
 - Service management
-- Template orchestration
-- Workflow execution
-- Environment management
-- Platform automation
+- Template integration
+- Workflow triggering
+- Platform resource management
 
 
-## Architecture
+## Current MVP
 
-Developer Portal
+Implemented:
 
-↓
-
-Platform API
-
-↓
-
-Domain Services
-
-↓
-
-Automation Engines
+- Service resource model
+- Service API endpoint
+- Health endpoint
 
 
-## Design Principles
+## Future
 
-- API first
-- Domain driven design
-- Clear ownership
-- Extensible workflows
-- Observable operations
+- Authentication
+- Authorization
+- Workflow integration
+- Event system
+- Database persistence
