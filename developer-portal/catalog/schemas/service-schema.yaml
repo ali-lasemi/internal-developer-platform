@@ -1,0 +1,21 @@
+﻿apiVersion: platform.internal/v1
+
+kind: Service
+
+metadata:
+  name: example-service
+
+spec:
+  owner:
+    team: platform
+
+  lifecycle:
+    status: active
+
+  repository:
+    provider: github
+
+  environments:
+    - development
+    - staging
+    - production
