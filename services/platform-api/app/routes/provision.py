@@ -1,9 +1,10 @@
-﻿from fastapi import APIRouter, HTTPException
+﻿from fastapi import APIRouter
+from fastapi import Depends
+from fastapi import HTTPException
 
-from app.schemas.provision import (
-    ProvisionServiceRequest,
-    ProvisionServiceResponse
-)
+from app.schemas.provision import ProvisionServiceRequest
+from app.schemas.provision import ProvisionServiceResponse
+from app.security.auth import require_roles
 from app.services.provisioning import provision_service
 
 
@@ -17,9 +18,20 @@ router = APIRouter(
     "/services",
     response_model=ProvisionServiceResponse
 )
-async def create_service(request: ProvisionServiceRequest):
+async def create_service(
+    request: ProvisionServiceRequest,
+    identity=Depends(
+        require_roles(
+            "developer",
+            "platform-engineer",
+            "admin"
+        )
+    )
+):
     try:
-        return await provision_service(request)
+        return await provision_service(
+            request
+        )
 
     except Exception as exc:
         raise HTTPException(

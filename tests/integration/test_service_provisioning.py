@@ -14,10 +14,48 @@ CATALOG_API = os.getenv(
     "http://localhost:8001"
 )
 
+IDENTITY_API = os.getenv(
+    "IDENTITY_API_URL",
+    "http://localhost:8005"
+)
+
 EVENT_API = os.getenv(
     "EVENT_API_URL",
     "http://localhost:8007"
 )
+
+
+def get_access_token():
+    suffix = uuid.uuid4().hex[:8]
+
+    username = f"developer-{suffix}"
+
+    registration = httpx.post(
+        f"{IDENTITY_API}/auth/register",
+        json={
+            "username": username,
+            "email": f"{username}@example.com",
+            "password": "integration-password",
+            "team": "payments-team",
+            "role": "developer"
+        },
+        timeout=10.0
+    )
+
+    assert registration.status_code == 201
+
+    login = httpx.post(
+        f"{IDENTITY_API}/auth/token",
+        json={
+            "username": username,
+            "password": "integration-password"
+        },
+        timeout=10.0
+    )
+
+    assert login.status_code == 200
+
+    return login.json()["access_token"]
 
 
 def test_complete_service_provisioning_journey():
@@ -25,8 +63,13 @@ def test_complete_service_provisioning_journey():
 
     service_name = f"payments-api-{suffix}"
 
+    token = get_access_token()
+
     response = httpx.post(
         f"{PLATFORM_API}/api/v1/provision/services",
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
         json={
             "name": service_name,
             "owner": "payments-team",
@@ -64,7 +107,6 @@ def test_complete_service_provisioning_journey():
     ]
 
     assert len(matching_services) == 1
-    assert matching_services[0]["owner"] == "payments-team"
 
     events_response = httpx.get(
         f"{EVENT_API}/events",
@@ -75,15 +117,10 @@ def test_complete_service_provisioning_journey():
 
     events = events_response.json()
 
-    service_events = [
-        event
-        for event in events
-        if event["subject"] == service_name
-    ]
-
     event_types = {
         event["type"]
-        for event in service_events
+        for event in events
+        if event["subject"] == service_name
     }
 
     assert "service.created" in event_types

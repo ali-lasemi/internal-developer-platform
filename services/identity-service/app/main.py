@@ -1,19 +1,30 @@
 ﻿from fastapi import FastAPI
-from app.routes.identity import router
+
+from app.routes.auth import router as auth_router
+from app.routes.identity import router as identity_router
+
 
 app = FastAPI(
-    title="Identity Service",
-    version="0.1.0"
+    title="Internal Developer Platform Identity Service",
+    description="Authentication and identity capability for the platform.",
+    version="0.2.0"
 )
 
-app.include_router(router)
+app.include_router(
+    identity_router
+)
+
+app.include_router(
+    auth_router
+)
 
 
 @app.get("/health")
 def health():
     return {
         "status": "ok",
-        "service": "identity-service"
+        "service": "identity-service",
+        "version": "0.2.0"
     }
 
 
@@ -21,4 +32,14 @@ def health():
 def readiness():
     return {
         "status": "ready"
+    }
+
+
+@app.get("/")
+def root():
+    return {
+        "product": "Internal Developer Platform",
+        "service": "identity-service",
+        "docs": "/docs",
+        "health": "/health"
     }
