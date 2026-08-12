@@ -40,16 +40,17 @@
     networks:
       - idp-network
 
-  platform-api:
-    build:
-      context: ./services/platform-api
-    container_name: idp-platform-api
-    ports:
-      - "8000:8000"
-    environment:
-      POLICY_ENGINE_URL: http://policy-engine:8000
-      CATALOG_URL: http://service-catalog:8000
-      WORKFLOW_ENGINE_URL: http://workflow-engine:8000
+
+    param($match)
+
+    $block = $match.Groups[0].Value
+
+    if ($block -notmatch "EVENT_PLATFORM_URL:") {
+        $block = $block -replace "WORKFLOW_ENGINE_URL: http://workflow-engine:8000", "WORKFLOW_ENGINE_URL: http://workflow-engine:8000`r`n      EVENT_PLATFORM_URL: http://event-platform:8000"
+    }
+
+    return $block
+
     depends_on:
       policy-engine:
         condition: service_started
@@ -146,5 +147,6 @@ volumes:
     name: idp-redis-data
   idp-postgres-data:
     name: idp-postgres-data
+
 
 

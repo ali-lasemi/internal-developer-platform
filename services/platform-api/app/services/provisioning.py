@@ -2,6 +2,8 @@
 
 import httpx
 
+from app.events.service_events import publish_service_created_event
+from app.events.service_events import publish_service_provisioning_started_event
 from app.schemas.provision import ProvisionServiceRequest
 
 
@@ -21,15 +23,24 @@ WORKFLOW_ENGINE_URL = os.getenv(
 )
 
 
-async def provision_service(request: ProvisionServiceRequest):
-    async with httpx.AsyncClient(timeout=10.0) as client:
+async def provision_service(
+    request: ProvisionServiceRequest
+):
+    async with httpx.AsyncClient(
+        timeout=10.0
+    ) as client:
 
         policy_response = await client.post(
             f"{POLICY_ENGINE_URL}/policies/evaluate"
         )
+
         policy_response.raise_for_status()
 
-        policy_decision = policy_response.json().get("decision")
+        policy_decision = (
+            policy_response
+            .json()
+            .get("decision")
+        )
 
         if policy_decision != "allowed":
             return {
@@ -52,16 +63,35 @@ async def provision_service(request: ProvisionServiceRequest):
                 "lifecycle": "created"
             }
         )
+
         catalog_response.raise_for_status()
+
+        await publish_service_created_event(
+            service_name=request.name,
+            owner=request.owner,
+            repository=request.repository,
+            environment=request.environment
+        )
 
         workflow_response = await client.post(
             f"{WORKFLOW_ENGINE_URL}/workflows/service-creation/execute"
         )
+
         workflow_response.raise_for_status()
 
-        workflow_status = workflow_response.json().get(
-            "status",
-            "unknown"
+        workflow_status = (
+            workflow_response
+            .json()
+            .get(
+                "status",
+                "unknown"
+            )
+        )
+
+        await publish_service_provisioning_started_event(
+            service_name=request.name,
+            owner=request.owner,
+            workflow_status=workflow_status
         )
 
         return {
