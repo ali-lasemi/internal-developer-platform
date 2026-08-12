@@ -1,0 +1,85 @@
+﻿name: Platform Integration
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  integration:
+    name: End-to-End Platform Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Compose
+        run: docker compose config
+
+      - name: Build Platform
+        run: docker compose build
+
+      - name: Start Platform
+        run: docker compose up -d
+
+      - name: Wait For Platform
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          urls=(
+            "http://localhost:8000/health"
+            "http://localhost:8001/health"
+            "http://localhost:8002/health"
+            "http://localhost:8003/health"
+            "http://localhost:8004/health"
+            "http://localhost:8005/health"
+            "http://localhost:8006/health"
+            "http://localhost:8007/health"
+          )
+
+          for url in "${urls[@]}"; do
+            ready=false
+
+            for attempt in $(seq 1 40); do
+              if curl --fail --silent "$url" > /dev/null; then
+                ready=true
+                break
+              fi
+
+              sleep 2
+            done
+
+            if [ "$ready" != "true" ]; then
+              echo "Service failed health check: $url"
+              docker compose ps
+              docker compose logs --tail=100
+              exit 1
+            fi
+          done
+
+      - name: Install Integration Test Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/integration/requirements.txt
+
+      - name: Run End-to-End Tests
+        run: pytest tests/integration -v
+
+      - name: Platform Status
+        if: always()
+        run: docker compose ps
+
+      - name: Platform Logs
+        if: failure()
+        run: docker compose logs --tail=200
+
+      - name: Stop Platform
+        if: always()
+        run: docker compose down -v
