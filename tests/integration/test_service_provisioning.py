@@ -25,7 +25,7 @@ EVENT_API = os.getenv(
 )
 
 
-def get_access_token():
+def create_authenticated_session():
     suffix = uuid.uuid4().hex[:8]
 
     username = f"developer-{suffix}"
@@ -55,7 +55,78 @@ def get_access_token():
 
     assert login.status_code == 200
 
-    return login.json()["access_token"]
+    tokens = login.json()
+
+    assert tokens["access_token"]
+    assert tokens["refresh_token"]
+
+    return tokens
+
+
+def test_refresh_token_rotation():
+    tokens = create_authenticated_session()
+
+    refresh = httpx.post(
+        f"{IDENTITY_API}/auth/refresh",
+        json={
+            "refresh_token": tokens[
+                "refresh_token"
+            ]
+        },
+        timeout=10.0
+    )
+
+    assert refresh.status_code == 200
+
+    rotated = refresh.json()
+
+    assert rotated["access_token"]
+    assert rotated["refresh_token"]
+
+    assert (
+        rotated["refresh_token"]
+        != tokens["refresh_token"]
+    )
+
+    replay = httpx.post(
+        f"{IDENTITY_API}/auth/refresh",
+        json={
+            "refresh_token": tokens[
+                "refresh_token"
+            ]
+        },
+        timeout=10.0
+    )
+
+    assert replay.status_code == 401
+
+
+def test_logout_revokes_session():
+    tokens = create_authenticated_session()
+
+    logout = httpx.post(
+        f"{IDENTITY_API}/auth/logout",
+        json={
+            "refresh_token": tokens[
+                "refresh_token"
+            ]
+        },
+        timeout=10.0
+    )
+
+    assert logout.status_code == 204
+
+    refresh = httpx.post(
+        f"{IDENTITY_API}/auth/refresh",
+        json={
+            "refresh_token": tokens[
+                "refresh_token"
+            ]
+        },
+        timeout=10.0
+    )
+
+    assert refresh.status_code == 401
 
 
 def test_complete_service_provisioning_journey():
@@ -63,12 +134,14 @@ def test_complete_service_provisioning_journey():
 
     service_name = f"payments-api-{suffix}"
 
-    token = get_access_token()
+    tokens = create_authenticated_session()
 
     response = httpx.post(
         f"{PLATFORM_API}/api/v1/provision/services",
         headers={
-            "Authorization": f"Bearer {token}"
+            "Authorization": (
+                f"Bearer {tokens['access_token']}"
+            )
         },
         json={
             "name": service_name,
@@ -106,7 +179,9 @@ def test_complete_service_provisioning_journey():
         if service["name"] == service_name
     ]
 
-    assert len(matching_services) == 1
+    assert len(
+        matching_services
+    ) == 1
 
     events_response = httpx.get(
         f"{EVENT_API}/events",

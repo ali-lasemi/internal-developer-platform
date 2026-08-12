@@ -6,11 +6,15 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import UserRecord
 from app.models.auth import LoginRequest
-from app.models.auth import TokenResponse
 from app.models.auth import UserRegistration
-from app.security.jwt import create_access_token
+from app.models.session import LogoutRequest
+from app.models.session import RefreshRequest
+from app.models.session import SessionTokenResponse
 from app.security.passwords import hash_password
 from app.security.passwords import verify_password
+from app.sessions.service import create_session
+from app.sessions.service import refresh_session
+from app.sessions.service import revoke_session
 
 
 router = APIRouter(
@@ -25,7 +29,9 @@ router = APIRouter(
 )
 def register_user(
     request: UserRegistration,
-    database: Session = Depends(get_db)
+    database: Session = Depends(
+        get_db
+    )
 ):
     existing_username = (
         database
@@ -46,7 +52,9 @@ def register_user(
         database
         .query(UserRecord)
         .filter(
-            UserRecord.email == str(request.email)
+            UserRecord.email == str(
+                request.email
+            )
         )
         .first()
     )
@@ -59,7 +67,9 @@ def register_user(
 
     user = UserRecord(
         username=request.username,
-        email=str(request.email),
+        email=str(
+            request.email
+        ),
         password_hash=hash_password(
             request.password
         ),
@@ -68,9 +78,14 @@ def register_user(
         active=True
     )
 
-    database.add(user)
+    database.add(
+        user
+    )
+
     database.commit()
-    database.refresh(user)
+    database.refresh(
+        user
+    )
 
     return {
         "id": user.id,
@@ -84,11 +99,13 @@ def register_user(
 
 @router.post(
     "/token",
-    response_model=TokenResponse
+    response_model=SessionTokenResponse
 )
 def login(
     request: LoginRequest,
-    database: Session = Depends(get_db)
+    database: Session = Depends(
+        get_db
+    )
 ):
     user = (
         database
@@ -120,12 +137,57 @@ def login(
             detail="Invalid credentials"
         )
 
-    token = create_access_token(
-        subject=user.username,
-        role=user.role,
-        team=user.team
+    return create_session(
+        database,
+        user
     )
 
-    return TokenResponse(
-        access_token=token
+
+@router.post(
+    "/refresh",
+    response_model=SessionTokenResponse
+)
+def refresh(
+    request: RefreshRequest,
+    database: Session = Depends(
+        get_db
     )
+):
+    try:
+        return refresh_session(
+            database,
+            request.refresh_token
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=str(
+                exc
+            )
+        ) from exc
+
+
+@router.post(
+    "/logout",
+    status_code=204
+)
+def logout(
+    request: LogoutRequest,
+    database: Session = Depends(
+        get_db
+    )
+):
+    try:
+        revoke_session(
+            database,
+            request.refresh_token
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=str(
+                exc
+            )
+        ) from exc

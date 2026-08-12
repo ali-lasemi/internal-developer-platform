@@ -6,8 +6,8 @@ from app.routes.identity import router as identity_router
 
 app = FastAPI(
     title="Internal Developer Platform Identity Service",
-    description="Persistent authentication and identity capability for the platform.",
-    version="0.4.0"
+    description="Persistent authentication, identity and session management capability for the platform.",
+    version="0.5.0"
 )
 
 app.include_router(
@@ -24,7 +24,7 @@ def health():
     return {
         "status": "ok",
         "service": "identity-service",
-        "version": "0.4.0"
+        "version": "0.5.0"
     }
 
 

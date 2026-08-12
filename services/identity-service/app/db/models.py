@@ -1,5 +1,10 @@
-﻿from sqlalchemy import Boolean
+﻿from datetime import datetime
+from datetime import timezone
+
+from sqlalchemy import Boolean
 from sqlalchemy import Column
+from sqlalchemy import DateTime
+from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import String
 
@@ -50,4 +55,50 @@ class UserRecord(Base):
         Boolean,
         nullable=False,
         default=True
+    )
+
+
+class RefreshSessionRecord(Base):
+    __tablename__ = "refresh_sessions"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    token_id = Column(
+        String(64),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey(
+            "platform_users.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True
+    )
+
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=False
+    )
+
+    revoked = Column(
+        Boolean,
+        nullable=False,
+        default=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        )
     )

@@ -158,6 +158,7 @@
       DATABASE_URL: postgresql+psycopg://idp:idp@postgres:5432/idp
       JWT_SECRET: ${JWT_SECRET:-local-development-secret}
       ACCESS_TOKEN_MINUTES: 60
+      REFRESH_TOKEN_DAYS: 7
     depends_on:
       postgres:
         condition: service_healthy
@@ -236,5 +237,6 @@ volumes:
 
   idp-redis-data:
     name: idp-redis-data
+
 
 
