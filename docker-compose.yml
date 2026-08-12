@@ -1,0 +1,76 @@
+﻿services:
+
+  platform-api:
+    build:
+      context: ./services/platform-api
+    container_name: idp-platform-api
+    ports:
+      - "8000:8000"
+    environment:
+      POLICY_ENGINE_URL: http://policy-engine:8000
+      CATALOG_URL: http://service-catalog:8000
+      WORKFLOW_ENGINE_URL: http://workflow-engine:8000
+    depends_on:
+      - policy-engine
+      - service-catalog
+      - workflow-engine
+    networks:
+      - idp-network
+
+  service-catalog:
+    build:
+      context: ./services/service-catalog
+    container_name: idp-service-catalog
+    ports:
+      - "8001:8000"
+    networks:
+      - idp-network
+
+  template-engine:
+    build:
+      context: ./services/template-engine
+    container_name: idp-template-engine
+    ports:
+      - "8002:8000"
+    networks:
+      - idp-network
+
+  workflow-engine:
+    build:
+      context: ./services/workflow-engine
+    container_name: idp-workflow-engine
+    ports:
+      - "8003:8000"
+    networks:
+      - idp-network
+
+  developer-portal-api:
+    build:
+      context: ./services/developer-portal-api
+    container_name: idp-developer-portal-api
+    ports:
+      - "8004:8000"
+    networks:
+      - idp-network
+
+  identity-service:
+    build:
+      context: ./services/identity-service
+    container_name: idp-identity-service
+    ports:
+      - "8005:8000"
+    networks:
+      - idp-network
+
+  policy-engine:
+    build:
+      context: ./services/policy-engine
+    container_name: idp-policy-engine
+    ports:
+      - "8006:8000"
+    networks:
+      - idp-network
+
+networks:
+  idp-network:
+    name: idp-network
