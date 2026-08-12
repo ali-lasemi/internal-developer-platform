@@ -151,12 +151,16 @@
     build:
       context: ./services/identity-service
     container_name: idp-identity-service
-    environment:
-      JWT_SECRET: ${JWT_SECRET:-local-development-secret}
-      ACCESS_TOKEN_MINUTES: 60
     restart: unless-stopped
     ports:
       - "8005:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://idp:idp@postgres:5432/idp
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret}
+      ACCESS_TOKEN_MINUTES: 60
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD
@@ -232,4 +236,5 @@ volumes:
 
   idp-redis-data:
     name: idp-redis-data
+
 

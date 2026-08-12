@@ -1,6 +1,10 @@
 ﻿from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
+from app.db.database import get_db
+from app.db.models import UserRecord
 from app.models.auth import LoginRequest
 from app.models.auth import TokenResponse
 from app.models.auth import UserRegistration
@@ -15,37 +19,66 @@ router = APIRouter(
 )
 
 
-users = {}
-
-
 @router.post(
     "/register",
     status_code=201
 )
 def register_user(
-    request: UserRegistration
+    request: UserRegistration,
+    database: Session = Depends(get_db)
 ):
-    if request.username in users:
+    existing_username = (
+        database
+        .query(UserRecord)
+        .filter(
+            UserRecord.username == request.username
+        )
+        .first()
+    )
+
+    if existing_username is not None:
         raise HTTPException(
             status_code=409,
-            detail="User already exists"
+            detail="Username already exists"
         )
 
-    users[request.username] = {
-        "username": request.username,
-        "email": request.email,
-        "password": hash_password(
+    existing_email = (
+        database
+        .query(UserRecord)
+        .filter(
+            UserRecord.email == str(request.email)
+        )
+        .first()
+    )
+
+    if existing_email is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Email already exists"
+        )
+
+    user = UserRecord(
+        username=request.username,
+        email=str(request.email),
+        password_hash=hash_password(
             request.password
         ),
-        "team": request.team,
-        "role": request.role
-    }
+        team=request.team,
+        role=request.role,
+        active=True
+    )
+
+    database.add(user)
+    database.commit()
+    database.refresh(user)
 
     return {
-        "username": request.username,
-        "email": request.email,
-        "team": request.team,
-        "role": request.role
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "team": user.team,
+        "role": user.role,
+        "active": user.active
     }
 
 
@@ -54,10 +87,16 @@ def register_user(
     response_model=TokenResponse
 )
 def login(
-    request: LoginRequest
+    request: LoginRequest,
+    database: Session = Depends(get_db)
 ):
-    user = users.get(
-        request.username
+    user = (
+        database
+        .query(UserRecord)
+        .filter(
+            UserRecord.username == request.username
+        )
+        .first()
     )
 
     if user is None:
@@ -66,9 +105,15 @@ def login(
             detail="Invalid credentials"
         )
 
+    if not user.active:
+        raise HTTPException(
+            status_code=403,
+            detail="User account is disabled"
+        )
+
     if not verify_password(
         request.password,
-        user["password"]
+        user.password_hash
     ):
         raise HTTPException(
             status_code=401,
@@ -76,9 +121,9 @@ def login(
         )
 
     token = create_access_token(
-        subject=user["username"],
-        role=user["role"],
-        team=user["team"]
+        subject=user.username,
+        role=user.role,
+        team=user.team
     )
 
     return TokenResponse(

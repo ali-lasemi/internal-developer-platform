@@ -1,13 +1,20 @@
 ﻿from fastapi import FastAPI
 
+from app.db.database import Base
+from app.db.database import engine
 from app.routes.auth import router as auth_router
 from app.routes.identity import router as identity_router
 
 
+Base.metadata.create_all(
+    bind=engine
+)
+
+
 app = FastAPI(
     title="Internal Developer Platform Identity Service",
-    description="Authentication and identity capability for the platform.",
-    version="0.2.0"
+    description="Persistent authentication and identity capability for the platform.",
+    version="0.3.0"
 )
 
 app.include_router(
@@ -24,7 +31,7 @@ def health():
     return {
         "status": "ok",
         "service": "identity-service",
-        "version": "0.2.0"
+        "version": "0.3.0"
     }
 
 
