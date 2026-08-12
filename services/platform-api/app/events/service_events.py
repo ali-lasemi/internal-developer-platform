@@ -1,4 +1,22 @@
-﻿from app.clients.event_platform import publish_event
+from app.clients.event_platform import publish_event
+
+
+async def publish_policy_evaluated_event(
+    service_name: str,
+    owner: str,
+    decision: str,
+    violations: list[dict]
+):
+    return await publish_event(
+        event_type="policy.evaluated",
+        source="platform-api",
+        subject=service_name,
+        data={
+            "owner": owner,
+            "decision": decision,
+            "violations": violations
+        }
+    )
 
 
 async def publish_service_created_event(

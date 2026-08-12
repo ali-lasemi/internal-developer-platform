@@ -1,7 +1,8 @@
-﻿import os
+import os
 
 import httpx
 
+from app.events.service_events import publish_policy_evaluated_event
 from app.events.service_events import publish_service_created_event
 from app.events.service_events import publish_service_provisioning_started_event
 from app.schemas.provision import ProvisionServiceRequest
@@ -45,7 +46,24 @@ async def provision_service(
 
         policy_result = policy_response.json()
 
-        if policy_result["decision"] != "allowed":
+        decision = policy_result.get(
+            "decision",
+            "denied"
+        )
+
+        violations = policy_result.get(
+            "violations",
+            []
+        )
+
+        await publish_policy_evaluated_event(
+            service_name=request.name,
+            owner=request.owner,
+            decision=decision,
+            violations=violations
+        )
+
+        if decision != "allowed":
             return {
                 "service": request.name,
                 "owner": request.owner,
@@ -53,7 +71,8 @@ async def provision_service(
                 "policy": "denied",
                 "catalog": "not_registered",
                 "workflow": "not_started",
-                "status": "rejected"
+                "status": "rejected",
+                "violations": violations
             }
 
         catalog_response = await client.post(
@@ -104,5 +123,6 @@ async def provision_service(
             "policy": "allowed",
             "catalog": "registered",
             "workflow": workflow_status,
-            "status": "provisioning"
+            "status": "provisioning",
+            "violations": []
         }
