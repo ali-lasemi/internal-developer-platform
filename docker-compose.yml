@@ -1,5 +1,24 @@
 ﻿services:
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: idp-postgres
+    environment:
+      POSTGRES_DB: idp
+      POSTGRES_USER: idp
+      POSTGRES_PASSWORD: idp
+    volumes:
+      - idp-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U idp -d idp
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - idp-network
+
   platform-api:
     build:
       context: ./services/platform-api
@@ -11,9 +30,12 @@
       CATALOG_URL: http://service-catalog:8000
       WORKFLOW_ENGINE_URL: http://workflow-engine:8000
     depends_on:
-      - policy-engine
-      - service-catalog
-      - workflow-engine
+      policy-engine:
+        condition: service_started
+      service-catalog:
+        condition: service_started
+      workflow-engine:
+        condition: service_started
     networks:
       - idp-network
 
@@ -23,6 +45,11 @@
     container_name: idp-service-catalog
     ports:
       - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://idp:idp@postgres:5432/idp
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - idp-network
 
@@ -71,6 +98,14 @@
     networks:
       - idp-network
 
+
 networks:
+
   idp-network:
     name: idp-network
+
+
+volumes:
+
+  idp-postgres-data:
+    name: idp-postgres-data

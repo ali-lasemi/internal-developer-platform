@@ -2,3 +2,5 @@
 uvicorn
 pytest
 httpx
+sqlalchemy
+psycopg[binary]
