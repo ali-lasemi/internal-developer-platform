@@ -99,8 +99,17 @@
       - idp-network
 
 
-networks:
 
+  event-platform:
+    build:
+      context: ./services/event-platform
+    container_name: idp-event-platform
+    ports:
+      - "8007:8000"
+    networks:
+      - idp-network
+
+networks:
   idp-network:
     name: idp-network
 
@@ -109,3 +118,4 @@ volumes:
 
   idp-postgres-data:
     name: idp-postgres-data
+
