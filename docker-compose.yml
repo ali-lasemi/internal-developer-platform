@@ -1,6 +1,5 @@
 ﻿services:
 
-
   redis:
     image: redis:7-alpine
     container_name: idp-redis
@@ -40,24 +39,27 @@
     networks:
       - idp-network
 
-
-    param($match)
-
-    $block = $match.Groups[0].Value
-
-    if ($block -notmatch "EVENT_PLATFORM_URL:") {
-        $block = $block -replace "WORKFLOW_ENGINE_URL: http://workflow-engine:8000", "WORKFLOW_ENGINE_URL: http://workflow-engine:8000`r`n      EVENT_PLATFORM_URL: http://event-platform:8000"
-    }
-
-    return $block
-
+  event-platform:
+    build:
+      context: ./services/event-platform
+    container_name: idp-event-platform
+    ports:
+      - "8007:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      EVENT_STREAM: idp-events
     depends_on:
-      policy-engine:
-        condition: service_started
-      service-catalog:
-        condition: service_started
-      workflow-engine:
-        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - idp-network
+
+  policy-engine:
+    build:
+      context: ./services/policy-engine
+    container_name: idp-policy-engine
+    ports:
+      - "8006:8000"
     networks:
       - idp-network
 
@@ -93,15 +95,6 @@
     networks:
       - idp-network
 
-  developer-portal-api:
-    build:
-      context: ./services/developer-portal-api
-    container_name: idp-developer-portal-api
-    ports:
-      - "8004:8000"
-    networks:
-      - idp-network
-
   identity-service:
     build:
       context: ./services/identity-service
@@ -111,42 +104,45 @@
     networks:
       - idp-network
 
-  policy-engine:
+  developer-portal-api:
     build:
-      context: ./services/policy-engine
-    container_name: idp-policy-engine
+      context: ./services/developer-portal-api
+    container_name: idp-developer-portal-api
     ports:
-      - "8006:8000"
+      - "8004:8000"
     networks:
       - idp-network
 
-
-
-  event-platform:
+  platform-api:
     build:
-      context: ./services/event-platform
-    container_name: idp-event-platform
+      context: ./services/platform-api
+    container_name: idp-platform-api
     ports:
-      - "8007:8000"
+      - "8000:8000"
     environment:
-      REDIS_URL: redis://redis:6379/0
-      EVENT_STREAM: idp-events
+      POLICY_ENGINE_URL: http://policy-engine:8000
+      CATALOG_URL: http://service-catalog:8000
+      WORKFLOW_ENGINE_URL: http://workflow-engine:8000
+      EVENT_PLATFORM_URL: http://event-platform:8000
     depends_on:
-      redis:
-        condition: service_healthy
+      policy-engine:
+        condition: service_started
+      service-catalog:
+        condition: service_started
+      workflow-engine:
+        condition: service_started
+      event-platform:
+        condition: service_started
     networks:
       - idp-network
+
 networks:
   idp-network:
     name: idp-network
 
-
 volumes:
-
-  idp-redis-data:
-    name: idp-redis-data
   idp-postgres-data:
     name: idp-postgres-data
 
-
-
+  idp-redis-data:
+    name: idp-redis-data
