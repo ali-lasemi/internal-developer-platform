@@ -15,3 +15,10 @@ def health():
         "status": "ok",
         "service": "template-engine"
     }
+
+
+@app.get("/ready")
+def readiness():
+    return {
+        "status": "ready"
+    }

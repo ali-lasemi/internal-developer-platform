@@ -36,3 +36,10 @@ def root():
         "docs": "/docs",
         "health": "/health"
     }
+
+
+@app.get("/ready")
+def readiness():
+    return {
+        "status": "ready"
+    }

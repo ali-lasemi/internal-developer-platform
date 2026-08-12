@@ -15,3 +15,10 @@ def health():
         "status": "ok",
         "service": "policy-engine"
     }
+
+
+@app.get("/ready")
+def readiness():
+    return {
+        "status": "ready"
+    }

@@ -15,3 +15,10 @@ def health():
         "status": "ok",
         "service": "developer-portal-api"
     }
+
+
+@app.get("/ready")
+def readiness():
+    return {
+        "status": "ready"
+    }

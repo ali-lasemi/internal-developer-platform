@@ -3,6 +3,7 @@
   redis:
     image: redis:7-alpine
     container_name: idp-redis
+    restart: unless-stopped
     command:
       - redis-server
       - --appendonly
@@ -23,6 +24,7 @@
   postgres:
     image: postgres:16-alpine
     container_name: idp-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: idp
       POSTGRES_USER: idp
@@ -43,6 +45,7 @@
     build:
       context: ./services/event-platform
     container_name: idp-event-platform
+    restart: unless-stopped
     ports:
       - "8007:8000"
     environment:
@@ -51,6 +54,15 @@
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - idp-network
 
@@ -58,8 +70,18 @@
     build:
       context: ./services/policy-engine
     container_name: idp-policy-engine
+    restart: unless-stopped
     ports:
       - "8006:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - idp-network
 
@@ -67,6 +89,7 @@
     build:
       context: ./services/service-catalog
     container_name: idp-service-catalog
+    restart: unless-stopped
     ports:
       - "8001:8000"
     environment:
@@ -74,6 +97,15 @@
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - idp-network
 
@@ -81,8 +113,18 @@
     build:
       context: ./services/template-engine
     container_name: idp-template-engine
+    restart: unless-stopped
     ports:
       - "8002:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - idp-network
 
@@ -90,8 +132,18 @@
     build:
       context: ./services/workflow-engine
     container_name: idp-workflow-engine
+    restart: unless-stopped
     ports:
       - "8003:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - idp-network
 
@@ -99,8 +151,18 @@
     build:
       context: ./services/identity-service
     container_name: idp-identity-service
+    restart: unless-stopped
     ports:
       - "8005:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - idp-network
 
@@ -108,8 +170,18 @@
     build:
       context: ./services/developer-portal-api
     container_name: idp-developer-portal-api
+    restart: unless-stopped
     ports:
       - "8004:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - idp-network
 
@@ -117,6 +189,7 @@
     build:
       context: ./services/platform-api
     container_name: idp-platform-api
+    restart: unless-stopped
     ports:
       - "8000:8000"
     environment:
@@ -126,13 +199,22 @@
       EVENT_PLATFORM_URL: http://event-platform:8000
     depends_on:
       policy-engine:
-        condition: service_started
+        condition: service_healthy
       service-catalog:
-        condition: service_started
+        condition: service_healthy
       workflow-engine:
-        condition: service_started
+        condition: service_healthy
       event-platform:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - idp-network
 
