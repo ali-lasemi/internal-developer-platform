@@ -1,5 +1,26 @@
 ﻿services:
 
+
+  redis:
+    image: redis:7-alpine
+    container_name: idp-redis
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+    volumes:
+      - idp-redis-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - idp-network
+
   postgres:
     image: postgres:16-alpine
     container_name: idp-postgres
@@ -106,9 +127,14 @@
     container_name: idp-event-platform
     ports:
       - "8007:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      EVENT_STREAM: idp-events
+    depends_on:
+      redis:
+        condition: service_healthy
     networks:
       - idp-network
-
 networks:
   idp-network:
     name: idp-network
@@ -116,6 +142,9 @@ networks:
 
 volumes:
 
+  idp-redis-data:
+    name: idp-redis-data
   idp-postgres-data:
     name: idp-postgres-data
+
 
