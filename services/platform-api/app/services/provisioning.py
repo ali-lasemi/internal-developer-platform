@@ -31,23 +31,26 @@ async def provision_service(
     ) as client:
 
         policy_response = await client.post(
-            f"{POLICY_ENGINE_URL}/policies/evaluate"
+            f"{POLICY_ENGINE_URL}/policies/evaluate",
+            json={
+                "service_name": request.name,
+                "owner": request.owner,
+                "repository": request.repository,
+                "description": request.description,
+                "environment": request.environment
+            }
         )
 
         policy_response.raise_for_status()
 
-        policy_decision = (
-            policy_response
-            .json()
-            .get("decision")
-        )
+        policy_result = policy_response.json()
 
-        if policy_decision != "allowed":
+        if policy_result["decision"] != "allowed":
             return {
                 "service": request.name,
                 "owner": request.owner,
                 "environment": request.environment,
-                "policy": policy_decision,
+                "policy": "denied",
                 "catalog": "not_registered",
                 "workflow": "not_started",
                 "status": "rejected"
