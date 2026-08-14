@@ -5,6 +5,7 @@ from app.models.portal import PortalAction
 from app.services.aggregator import catalog_services
 from app.services.aggregator import developer_dashboard
 from app.services.aggregator import operational_overview
+from app.services.aggregator import owner_view
 from app.services.aggregator import platform_status
 from app.services.aggregator import recent_events
 from app.services.aggregator import service_detail
@@ -109,3 +110,13 @@ def create_action(
         "service": action.service,
         "action": action.action
     }
+
+@router.get(
+    "/owners/{owner}"
+)
+async def owner_dashboard(
+    owner: str
+):
+    return await owner_view(
+        owner
+    )

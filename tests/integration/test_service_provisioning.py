@@ -1023,3 +1023,128 @@ def test_developer_portal_dashboard():
         payload["totals"]["templates"]
         >= 3
     )
+
+def test_catalog_filtering_and_owner_portal():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    owner = f"owner-{suffix}"
+
+    service_names = [
+        f"owner-api-{suffix}",
+        f"owner-worker-{suffix}"
+    ]
+
+    for service_name in service_names:
+        response = httpx.post(
+            f"{CATALOG_API}/catalog",
+            json={
+                "name": service_name,
+                "owner": owner,
+                "repository": (
+                    "https://github.com/example/"
+                    f"{service_name}"
+                ),
+                "description": (
+                    "Owner filtering integration service"
+                ),
+                "lifecycle": "created"
+            },
+            timeout=10.0
+        )
+
+        assert response.status_code == 201
+
+    filtered = httpx.get(
+        f"{CATALOG_API}/catalog",
+        params={
+            "owner": owner
+        },
+        timeout=10.0
+    )
+
+    assert filtered.status_code == 200
+
+    filtered_services = filtered.json()
+
+    assert len(
+        filtered_services
+    ) == 2
+
+    assert all(
+        service["owner"] == owner
+        for service in filtered_services
+    )
+
+    summary = httpx.get(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/owners/{owner}/summary"
+        ),
+        timeout=10.0
+    )
+
+    assert summary.status_code == 200
+    assert (
+        summary.json()["total_services"]
+        == 2
+    )
+
+    portal = httpx.get(
+        (
+            f"{portal_api}"
+            f"/portal/owners/{owner}"
+        ),
+        timeout=10.0
+    )
+
+    assert portal.status_code == 200
+
+    payload = portal.json()
+
+    assert payload["owner"] == owner
+    assert (
+        payload[
+            "service_summary"
+        ][
+            "total_services"
+        ]
+        == 2
+    )
+
+
+def test_workflow_execution_filters():
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    response = httpx.get(
+        (
+            f"{workflow_api}"
+            "/workflows/executions"
+        ),
+        params={
+            "workflow": "service-creation",
+            "limit": 10
+        },
+        timeout=10.0
+    )
+
+    assert response.status_code == 200
+
+    executions = response.json()
+
+    assert len(
+        executions
+    ) <= 10
+
+    assert all(
+        execution["workflow"]
+        == "service-creation"
+        for execution in executions
+    )

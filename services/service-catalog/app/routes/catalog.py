@@ -27,15 +27,43 @@ router = APIRouter(
     response_model=list[CatalogService]
 )
 def list_catalog(
+    owner: str | None = None,
+    lifecycle: str | None = None,
+    limit: int = 100,
     database: Session = Depends(
         get_db
     )
 ):
+    query = database.query(
+        ServiceRecord
+    )
+
+    if owner:
+        query = query.filter(
+            ServiceRecord.owner == owner
+        )
+
+    if lifecycle:
+        query = query.filter(
+            ServiceRecord.lifecycle
+            == lifecycle
+        )
+
+    safe_limit = min(
+        max(
+            limit,
+            1
+        ),
+        500
+    )
+
     return (
-        database
-        .query(ServiceRecord)
+        query
         .order_by(
-            ServiceRecord.id.asc()
+            ServiceRecord.id.desc()
+        )
+        .limit(
+            safe_limit
         )
         .all()
     )
@@ -94,6 +122,51 @@ def catalog_metrics(
             "retired",
             0
         )
+    }
+
+@router.get(
+    "/owners/{owner}/summary"
+)
+def owner_summary(
+    owner: str,
+    database: Session = Depends(
+        get_db
+    )
+):
+    services = (
+        database
+        .query(
+            ServiceRecord
+        )
+        .filter(
+            ServiceRecord.owner == owner
+        )
+        .order_by(
+            ServiceRecord.id.desc()
+        )
+        .all()
+    )
+
+    lifecycle = {}
+
+    for service in services:
+        lifecycle[
+            service.lifecycle
+        ] = (
+            lifecycle.get(
+                service.lifecycle,
+                0
+            )
+            + 1
+        )
+
+    return {
+        "owner": owner,
+        "total_services": len(
+            services
+        ),
+        "lifecycle": lifecycle,
+        "services": services
     }
 
 @router.get(

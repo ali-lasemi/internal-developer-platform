@@ -231,3 +231,65 @@ async def developer_dashboard():
         "templates": templates,
         "events": events[-20:]
     }
+
+async def owner_view(
+    owner: str
+):
+    services = await get_json(
+        (
+            f"{CATALOG_URL}"
+            f"/catalog/owners/{owner}/summary"
+        )
+    )
+
+    workflows = await workflow_executions()
+
+    events = await recent_events()
+
+    owner_services = {
+        service["name"]
+        for service in services[
+            "services"
+        ]
+    }
+
+    relevant_events = [
+        event
+        for event in events
+        if (
+            event.get(
+                "subject"
+            )
+            in owner_services
+            or event.get(
+                "data",
+                {}
+            ).get(
+                "owner"
+            )
+            == owner
+        )
+    ]
+
+    return {
+        "owner": owner,
+        "service_summary": services,
+        "workflow_summary": {
+            "total": len(
+                workflows
+            ),
+            "failed": len(
+                [
+                    item
+                    for item in workflows
+                    if item.get(
+                        "status"
+                    )
+                    == "failed"
+                ]
+            )
+        },
+        "recent_events": relevant_events[
+            -20:
+        ]
+    }

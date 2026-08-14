@@ -62,13 +62,55 @@ def start_workflow(
     response_model=list[WorkflowExecution]
 )
 def read_executions(
+    status: str | None = None,
+    workflow: str | None = None,
+    limit: int = 100,
     database: Session = Depends(
         get_db
     )
 ):
-    return list_executions(
-        database
+    query = database.query(
+        WorkflowExecutionRecord
     )
+
+    if status:
+        query = query.filter(
+            WorkflowExecutionRecord.status
+            == status
+        )
+
+    if workflow:
+        query = query.filter(
+            WorkflowExecutionRecord.workflow
+            == workflow
+        )
+
+    safe_limit = min(
+        max(
+            limit,
+            1
+        ),
+        500
+    )
+
+    records = (
+        query
+        .order_by(
+            WorkflowExecutionRecord.id.desc()
+        )
+        .limit(
+            safe_limit
+        )
+        .all()
+    )
+
+    return [
+        get_execution(
+            database,
+            record.execution_id
+        )
+        for record in records
+    ]
 
 
 @router.get(
