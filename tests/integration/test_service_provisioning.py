@@ -804,3 +804,106 @@ def test_runtime_dependency_readiness():
 
     assert catalog_checks["database"] is True
     assert catalog_checks["event_platform"] is True
+
+def test_developer_portal_platform_view():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    status_response = httpx.get(
+        f"{portal_api}/portal/status",
+        timeout=10.0
+    )
+
+    assert status_response.status_code == 200
+
+    status = status_response.json()
+
+    assert status["total_services"] >= 6
+    assert status["healthy_services"] >= 5
+
+    templates_response = httpx.get(
+        f"{portal_api}/portal/templates",
+        timeout=10.0
+    )
+
+    assert templates_response.status_code == 200
+
+    template_names = {
+        template["name"]
+        for template in templates_response.json()[
+            "templates"
+        ]
+    }
+
+    assert "backend-service" in template_names
+
+    services_response = httpx.get(
+        f"{portal_api}/portal/services",
+        timeout=10.0
+    )
+
+    assert services_response.status_code == 200
+    assert "services" in services_response.json()
+
+    workflows_response = httpx.get(
+        f"{portal_api}/portal/workflows",
+        timeout=10.0
+    )
+
+    assert workflows_response.status_code == 200
+    assert "executions" in workflows_response.json()
+
+    events_response = httpx.get(
+        f"{portal_api}/portal/events",
+        timeout=10.0
+    )
+
+    assert events_response.status_code == 200
+    assert "events" in events_response.json()
+
+
+def test_developer_portal_service_detail():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    create = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": f"portal-api-{suffix}",
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"portal-api-{suffix}"
+            ),
+            "description": (
+                "Developer portal detail test"
+            ),
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create.status_code == 201
+
+    service_id = create.json()["id"]
+
+    detail = httpx.get(
+        (
+            f"{portal_api}"
+            f"/portal/services/{service_id}"
+        ),
+        timeout=10.0
+    )
+
+    assert detail.status_code == 200
+
+    payload = detail.json()
+
+    assert payload["id"] == service_id
+    assert "lifecycle_history" in payload

@@ -192,6 +192,24 @@ services:
     restart: unless-stopped
     ports:
       - "8004:8000"
+    environment:
+      PLATFORM_API_URL: http://platform-api:8000
+      CATALOG_URL: http://service-catalog:8000
+      WORKFLOW_URL: http://workflow-engine:8000
+      TEMPLATE_URL: http://template-engine:8000
+      POLICY_URL: http://policy-engine:8000
+      EVENT_URL: http://event-platform:8000
+    depends_on:
+      service-catalog:
+        condition: service_healthy
+      workflow-engine:
+        condition: service_healthy
+      template-engine:
+        condition: service_healthy
+      policy-engine:
+        condition: service_healthy
+      event-platform:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD
