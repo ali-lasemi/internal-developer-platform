@@ -1148,3 +1148,115 @@ def test_workflow_execution_filters():
         == "service-creation"
         for execution in executions
     )
+
+def test_template_rendering_and_provisioning_materialization():
+    template_api = os.getenv(
+        "TEMPLATE_API_URL",
+        "http://localhost:8002"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = f"render-api-{suffix}"
+
+    render = httpx.post(
+        (
+            f"{template_api}"
+            "/templates/backend-service/render"
+        ),
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "environment": "development"
+        },
+        timeout=10.0
+    )
+
+    assert render.status_code == 200
+
+    rendered = render.json()
+
+    assert rendered["template"] == "backend-service"
+    assert "README.md" in rendered["files"]
+    assert "service.yaml" in rendered["files"]
+    assert "app/main.py" in rendered["files"]
+
+    session = create_authenticated_session()
+
+    provision = httpx.post(
+        (
+            f"{PLATFORM_API}"
+            "/api/v1/provision/services"
+        ),
+        headers={
+            "Authorization": (
+                f"Bearer "
+                f"{session['access_token']}"
+            )
+        },
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Rendered golden path integration test"
+            ),
+            "template": "backend-service",
+            "environment": "development"
+        },
+        timeout=20.0
+    )
+
+    assert provision.status_code == 200
+
+    payload = provision.json()
+
+    assert (
+        payload["rendered_template"]["template"]
+        == "backend-service"
+    )
+
+    assert (
+        "app/main.py"
+        in payload["rendered_template"]["files"]
+    )
+
+
+def test_portal_template_preview():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    preview = httpx.post(
+        (
+            f"{portal_api}"
+            "/portal/templates/backend-service/preview"
+        ),
+        json={
+            "name": f"preview-{suffix}",
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"preview-{suffix}"
+            ),
+            "environment": "development"
+        },
+        timeout=10.0
+    )
+
+    assert preview.status_code == 200
+
+    payload = preview.json()
+
+    assert payload["template"] == "backend-service"
+    assert "service.yaml" in payload["files"]

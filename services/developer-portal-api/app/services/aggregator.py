@@ -7,6 +7,7 @@ from app.clients.platform import POLICY_URL
 from app.clients.platform import TEMPLATE_URL
 from app.clients.platform import WORKFLOW_URL
 from app.clients.platform import get_json
+from app.clients.platform import post_json
 from app.clients.platform import service_status
 
 
@@ -293,3 +294,15 @@ async def owner_view(
             -20:
         ]
     }
+
+async def template_preview(
+    template_name: str,
+    payload: dict
+):
+    return await post_json(
+        (
+            f"{TEMPLATE_URL}"
+            f"/templates/{template_name}/render"
+        ),
+        payload
+    )

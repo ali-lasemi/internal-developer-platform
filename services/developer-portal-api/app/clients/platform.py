@@ -72,3 +72,19 @@ async def service_status(
                 exc
             )
         }
+
+async def post_json(
+    url: str,
+    payload: dict
+):
+    async with httpx.AsyncClient(
+        timeout=5.0
+    ) as client:
+        response = await client.post(
+            url,
+            json=payload
+        )
+
+        response.raise_for_status()
+
+        return response.json()

@@ -10,6 +10,7 @@ from app.services.aggregator import platform_status
 from app.services.aggregator import recent_events
 from app.services.aggregator import service_detail
 from app.services.aggregator import templates
+from app.services.aggregator import template_preview
 from app.services.aggregator import workflow_execution
 from app.services.aggregator import workflow_executions
 
@@ -120,3 +121,24 @@ async def owner_dashboard(
     return await owner_view(
         owner
     )
+
+@router.post(
+    "/templates/{template_name}/preview"
+)
+async def preview_template(
+    template_name: str,
+    payload: dict
+):
+    try:
+        return await template_preview(
+            template_name,
+            payload
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(
+                exc
+            )
+        ) from exc

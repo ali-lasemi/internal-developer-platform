@@ -36,6 +36,7 @@ class ProvisionServiceResponse(BaseModel):
     template: str
     template_version: str
     template_status: str
+    rendered_template: dict | None = None
     policy: str
     catalog: str
     workflow: str
