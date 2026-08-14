@@ -18,6 +18,12 @@ WORKFLOW_STEPS = {
 }
 
 
+def _utcnow():
+    return datetime.now(
+        timezone.utc
+    )
+
+
 def _to_model(
     record: WorkflowExecutionRecord
 ) -> WorkflowExecution:
@@ -28,12 +34,37 @@ def _to_model(
         steps=[
             WorkflowStep(
                 name=step["name"],
-                status=step["status"]
+                status=step["status"],
+                started_at=step.get(
+                    "started_at"
+                ),
+                completed_at=step.get(
+                    "completed_at"
+                ),
+                error=step.get(
+                    "error"
+                )
             )
             for step in record.steps
         ],
         started_at=record.started_at,
-        completed_at=record.completed_at
+        completed_at=record.completed_at,
+        failed_at=record.failed_at,
+        error=record.error
+    )
+
+
+def _persist(
+    database: Session,
+    record: WorkflowExecutionRecord
+):
+    database.add(
+        record
+    )
+
+    database.commit()
+    database.refresh(
+        record
     )
 
 
@@ -43,40 +74,132 @@ def execute_workflow(
 ) -> WorkflowExecution:
     execution_id = uuid4().hex
 
+    step_names = WORKFLOW_STEPS.get(
+        workflow_name,
+        [
+            "execute"
+        ]
+    )
+
     steps = [
         {
             "name": name,
-            "status": "completed"
+            "status": "pending",
+            "started_at": None,
+            "completed_at": None,
+            "error": None
         }
-        for name in WORKFLOW_STEPS.get(
-            workflow_name,
-            [
-                "execute"
-            ]
-        )
+        for name in step_names
     ]
-
-    now = datetime.now(
-        timezone.utc
-    )
 
     record = WorkflowExecutionRecord(
         execution_id=execution_id,
         workflow=workflow_name,
-        status="completed",
+        status="pending",
         steps=steps,
-        started_at=now,
-        completed_at=now
+        started_at=_utcnow(),
+        completed_at=None,
+        failed_at=None,
+        error=None
     )
 
-    database.add(
+    _persist(
+        database,
         record
     )
 
-    database.commit()
-    database.refresh(
+    record.status = "running"
+
+    _persist(
+        database,
         record
     )
+
+    try:
+        current_steps = list(
+            record.steps
+        )
+
+        for index, step in enumerate(
+            current_steps
+        ):
+            started_at = _utcnow()
+
+            current_steps[index] = {
+                **step,
+                "status": "running",
+                "started_at": started_at.isoformat(),
+                "completed_at": None,
+                "error": None
+            }
+
+            record.steps = list(
+                current_steps
+            )
+
+            _persist(
+                database,
+                record
+            )
+
+            completed_at = _utcnow()
+
+            current_steps[index] = {
+                **current_steps[index],
+                "status": "completed",
+                "completed_at": (
+                    completed_at.isoformat()
+                )
+            }
+
+            record.steps = list(
+                current_steps
+            )
+
+            _persist(
+                database,
+                record
+            )
+
+        record.status = "completed"
+        record.completed_at = _utcnow()
+
+        _persist(
+            database,
+            record
+        )
+
+    except Exception as exc:
+        record.status = "failed"
+        record.failed_at = _utcnow()
+        record.error = str(
+            exc
+        )
+
+        current_steps = list(
+            record.steps
+        )
+
+        for index, step in enumerate(
+            current_steps
+        ):
+            if step["status"] == "running":
+                current_steps[index] = {
+                    **step,
+                    "status": "failed",
+                    "error": str(
+                        exc
+                    )
+                }
+
+                break
+
+        record.steps = current_steps
+
+        _persist(
+            database,
+            record
+        )
 
     return _to_model(
         record

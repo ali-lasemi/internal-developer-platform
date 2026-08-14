@@ -1,10 +1,9 @@
-from datetime import datetime
-
-from sqlalchemy import DateTime
-from sqlalchemy import JSON
 from sqlalchemy import Column
+from sqlalchemy import DateTime
 from sqlalchemy import Integer
+from sqlalchemy import JSON
 from sqlalchemy import String
+from sqlalchemy import Text
 
 from app.db.database import Base
 
@@ -49,5 +48,15 @@ class WorkflowExecutionRecord(Base):
 
     completed_at = Column(
         DateTime(timezone=True),
+        nullable=True
+    )
+
+    failed_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    error = Column(
+        Text,
         nullable=True
     )

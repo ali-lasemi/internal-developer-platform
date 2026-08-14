@@ -490,3 +490,85 @@ def test_workflow_execution_is_persisted():
     assert execution["workflow"] == "service-creation"
     assert execution["status"] == "completed"
     assert len(execution["steps"]) >= 1
+
+def test_workflow_timeline_contains_step_transitions():
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = f"workflow-timeline-{suffix}"
+
+    tokens = create_authenticated_session()
+
+    response = httpx.post(
+        f"{PLATFORM_API}/api/v1/provision/services",
+        headers={
+            "Authorization": (
+                f"Bearer {tokens['access_token']}"
+            )
+        },
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                f"https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Workflow timeline validation service"
+            ),
+            "template": "backend-service",
+            "environment": "development"
+        },
+        timeout=20.0
+    )
+
+    assert response.status_code == 200
+
+    result = response.json()
+
+    assert result["workflow"] == "completed"
+
+    execution_id = result[
+        "workflow_execution_id"
+    ]
+
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    execution_response = httpx.get(
+        (
+            f"{workflow_api}"
+            f"/workflows/executions/"
+            f"{execution_id}"
+        ),
+        timeout=10.0
+    )
+
+    assert execution_response.status_code == 200
+
+    execution = execution_response.json()
+
+    assert execution["status"] == "completed"
+    assert execution["completed_at"] is not None
+    assert execution["failed_at"] is None
+    assert execution["error"] is None
+
+    expected_steps = [
+        "validate-request",
+        "prepare-service",
+        "register-service"
+    ]
+
+    actual_steps = [
+        step["name"]
+        for step in execution["steps"]
+    ]
+
+    assert actual_steps == expected_steps
+
+    for step in execution["steps"]:
+        assert step["status"] == "completed"
+        assert step["started_at"] is not None
+        assert step["completed_at"] is not None
+        assert step["error"] is None
