@@ -1,9 +1,11 @@
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.db.models import WorkflowExecutionRecord
 from app.models.execution import WorkflowExecution
 from app.models.workflow import Workflow
 from app.services.execution import execute_workflow
@@ -67,6 +69,79 @@ def read_executions(
     return list_executions(
         database
     )
+
+
+@router.get(
+    "/executions/metrics"
+)
+def execution_metrics(
+    database: Session = Depends(
+        get_db
+    )
+):
+    total = (
+        database
+        .query(
+            func.count(
+                WorkflowExecutionRecord.id
+            )
+        )
+        .scalar()
+        or 0
+    )
+
+    rows = (
+        database
+        .query(
+            WorkflowExecutionRecord.status,
+            func.count(
+                WorkflowExecutionRecord.id
+            )
+        )
+        .group_by(
+            WorkflowExecutionRecord.status
+        )
+        .all()
+    )
+
+    statuses = {
+        status: count
+        for status, count in rows
+    }
+
+    completed = statuses.get(
+        "completed",
+        0
+    )
+
+    failed = statuses.get(
+        "failed",
+        0
+    )
+
+    success_rate = (
+        round(
+            completed / total,
+            4
+        )
+        if total
+        else 1.0
+    )
+
+    return {
+        "total": total,
+        "completed": completed,
+        "failed": failed,
+        "running": statuses.get(
+            "running",
+            0
+        ),
+        "pending": statuses.get(
+            "pending",
+            0
+        ),
+        "success_rate": success_rate
+    }
 
 
 @router.get(

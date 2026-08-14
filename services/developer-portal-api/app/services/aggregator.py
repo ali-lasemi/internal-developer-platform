@@ -115,3 +115,60 @@ async def recent_events():
     )
 
     return events[-50:]
+
+async def operational_overview():
+    (
+        status,
+        catalog_metrics,
+        workflow_metrics,
+        workflow_history,
+        events
+    ) = await asyncio.gather(
+        platform_status(),
+        get_json(
+            f"{CATALOG_URL}/catalog/metrics"
+        ),
+        get_json(
+            (
+                f"{WORKFLOW_URL}"
+                "/workflows/executions/metrics"
+            )
+        ),
+        workflow_executions(),
+        recent_events()
+    )
+
+    recent_failures = [
+        execution
+        for execution in workflow_history
+        if execution.get(
+            "status"
+        ) == "failed"
+    ][:20]
+
+    event_counts = {}
+
+    for event in events:
+        event_type = event.get(
+            "type",
+            "unknown"
+        )
+
+        event_counts[event_type] = (
+            event_counts.get(
+                event_type,
+                0
+            )
+            + 1
+        )
+
+    return {
+        "platform": status,
+        "catalog": catalog_metrics,
+        "workflows": workflow_metrics,
+        "recent_failures": recent_failures,
+        "event_counts": event_counts,
+        "recent_event_count": len(
+            events
+        )
+    }

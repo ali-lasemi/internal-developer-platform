@@ -907,3 +907,68 @@ def test_developer_portal_service_detail():
 
     assert payload["id"] == service_id
     assert "lifecycle_history" in payload
+
+def test_operational_metrics_and_portal_overview():
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    workflow_metrics = httpx.get(
+        (
+            f"{workflow_api}"
+            "/workflows/executions/metrics"
+        ),
+        timeout=10.0
+    )
+
+    assert workflow_metrics.status_code == 200
+
+    workflow_payload = workflow_metrics.json()
+
+    assert "total" in workflow_payload
+    assert "completed" in workflow_payload
+    assert "failed" in workflow_payload
+    assert "success_rate" in workflow_payload
+
+    catalog_metrics = httpx.get(
+        f"{CATALOG_API}/catalog/metrics",
+        timeout=10.0
+    )
+
+    assert catalog_metrics.status_code == 200
+
+    catalog_payload = catalog_metrics.json()
+
+    assert "total_services" in catalog_payload
+    assert "lifecycle" in catalog_payload
+
+    operations = httpx.get(
+        f"{portal_api}/portal/operations",
+        timeout=10.0
+    )
+
+    assert operations.status_code == 200
+
+    payload = operations.json()
+
+    assert "platform" in payload
+    assert "catalog" in payload
+    assert "workflows" in payload
+    assert "recent_failures" in payload
+    assert "event_counts" in payload
+
+    assert (
+        payload["workflows"]["success_rate"]
+        >= 0
+    )
+
+    assert (
+        payload["workflows"]["success_rate"]
+        <= 1
+    )

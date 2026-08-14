@@ -3,6 +3,7 @@ from fastapi import HTTPException
 
 from app.models.portal import PortalAction
 from app.services.aggregator import catalog_services
+from app.services.aggregator import operational_overview
 from app.services.aggregator import platform_status
 from app.services.aggregator import recent_events
 from app.services.aggregator import service_detail
@@ -20,6 +21,11 @@ router = APIRouter(
 @router.get("/status")
 async def status():
     return await platform_status()
+
+
+@router.get("/operations")
+async def operations():
+    return await operational_overview()
 
 
 @router.get("/services")

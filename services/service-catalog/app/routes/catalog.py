@@ -1,6 +1,7 @@
-﻿from fastapi import APIRouter
+from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -39,6 +40,61 @@ def list_catalog(
         .all()
     )
 
+
+@router.get(
+    "/metrics"
+)
+def catalog_metrics(
+    database: Session = Depends(
+        get_db
+    )
+):
+    total = (
+        database
+        .query(
+            func.count(
+                ServiceRecord.id
+            )
+        )
+        .scalar()
+        or 0
+    )
+
+    rows = (
+        database
+        .query(
+            ServiceRecord.lifecycle,
+            func.count(
+                ServiceRecord.id
+            )
+        )
+        .group_by(
+            ServiceRecord.lifecycle
+        )
+        .all()
+    )
+
+    lifecycle = {
+        state: count
+        for state, count in rows
+    }
+
+    return {
+        "total_services": total,
+        "lifecycle": lifecycle,
+        "production": lifecycle.get(
+            "production",
+            0
+        ),
+        "deprecated": lifecycle.get(
+            "deprecated",
+            0
+        ),
+        "retired": lifecycle.get(
+            "retired",
+            0
+        )
+    }
 
 @router.get(
     "/{service_id}",
