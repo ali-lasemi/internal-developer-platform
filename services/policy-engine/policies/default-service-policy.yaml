@@ -1,0 +1,26 @@
+﻿name: default-service-policy
+description: Default governance rules for services managed by the platform.
+enabled: true
+
+rules:
+  service-name-format:
+    enabled: true
+
+  service-owner-required:
+    enabled: true
+
+  repository-source:
+    enabled: true
+    allowed_hosts:
+      - github.com
+
+  environment-allowed:
+    enabled: true
+    values:
+      - development
+      - staging
+      - production
+
+  production-description:
+    enabled: true
+    minimum_length: 20

@@ -2,7 +2,7 @@
 
 from app.models.evaluation import PolicyEvaluationRequest
 from app.models.evaluation import PolicyEvaluationResponse
-from app.models.policy import Policy
+from app.repository.policy_repository import policy_repository
 from app.services.evaluator import evaluate_service_policy
 
 
@@ -12,23 +12,16 @@ router = APIRouter(
 )
 
 
-policies = []
-
-
 @router.get("")
-def list_policies():
-    return policies
+def get_policy():
+    return policy_repository.get()
 
 
-@router.post("")
-def create_policy(
-    policy: Policy
-):
-    policies.append(
-        policy
-    )
-
-    return policy
+@router.post(
+    "/reload"
+)
+def reload_policy():
+    return policy_repository.reload()
 
 
 @router.post(
