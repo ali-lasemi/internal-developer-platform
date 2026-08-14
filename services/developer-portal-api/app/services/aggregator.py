@@ -172,3 +172,62 @@ async def operational_overview():
             events
         )
     }
+
+async def developer_dashboard():
+    (
+        platform,
+        services,
+        workflows,
+        templates,
+        events
+    ) = await asyncio.gather(
+        platform_status(),
+        catalog_services(),
+        workflow_executions(),
+        templates(),
+        recent_events()
+    )
+
+    production_services = [
+        service
+        for service in services
+        if service.get(
+            "lifecycle"
+        ) == "production"
+    ]
+
+    failed_workflows = [
+        execution
+        for execution in workflows
+        if execution.get(
+            "status"
+        ) == "failed"
+    ]
+
+    return {
+        "platform": platform,
+        "totals": {
+            "services": len(
+                services
+            ),
+            "production_services": len(
+                production_services
+            ),
+            "workflow_executions": len(
+                workflows
+            ),
+            "failed_workflows": len(
+                failed_workflows
+            ),
+            "templates": len(
+                templates
+            ),
+            "recent_events": len(
+                events
+            )
+        },
+        "services": services[-20:],
+        "workflows": workflows[:20],
+        "templates": templates,
+        "events": events[-20:]
+    }

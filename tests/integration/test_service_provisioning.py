@@ -972,3 +972,54 @@ def test_operational_metrics_and_portal_overview():
         payload["workflows"]["success_rate"]
         <= 1
     )
+
+def test_platform_product_summary():
+    response = httpx.get(
+        (
+            f"{PLATFORM_API}"
+            "/api/v1/platform/summary"
+        ),
+        timeout=10.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert "services" in payload
+    assert "workflows" in payload
+    assert "templates" in payload
+    assert "policies" in payload
+
+    assert (
+        payload["templates"]["count"]
+        >= 3
+    )
+
+
+def test_developer_portal_dashboard():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    response = httpx.get(
+        f"{portal_api}/portal/dashboard",
+        timeout=10.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert "platform" in payload
+    assert "totals" in payload
+    assert "services" in payload
+    assert "workflows" in payload
+    assert "templates" in payload
+    assert "events" in payload
+
+    assert (
+        payload["totals"]["templates"]
+        >= 3
+    )

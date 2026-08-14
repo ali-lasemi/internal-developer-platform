@@ -1,4 +1,5 @@
-﻿from fastapi import FastAPI
+from fastapi import FastAPI
+from app.routes.platform import router as platform_router
 
 from app.routes.services import router as services_router
 from app.routes.provision import router as provision_router
@@ -38,3 +39,6 @@ def readiness():
     return {
         "status": "ready"
     }
+
+
+app.include_router(platform_router)
