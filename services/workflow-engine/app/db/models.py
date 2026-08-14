@@ -36,6 +36,18 @@ class WorkflowExecutionRecord(Base):
         index=True
     )
 
+    attempt = Column(
+        Integer,
+        nullable=False,
+        default=1
+    )
+
+    parent_execution_id = Column(
+        String(64),
+        nullable=True,
+        index=True
+    )
+
     steps = Column(
         JSON,
         nullable=False

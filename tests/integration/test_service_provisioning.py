@@ -572,3 +572,80 @@ def test_workflow_timeline_contains_step_transitions():
         assert step["started_at"] is not None
         assert step["completed_at"] is not None
         assert step["error"] is None
+
+def test_failed_workflow_can_be_retried():
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    failed_response = httpx.post(
+        (
+            f"{workflow_api}"
+            "/workflows/service-creation/execute"
+        ),
+        params={
+            "fail_step": "prepare-service"
+        },
+        timeout=10.0
+    )
+
+    assert failed_response.status_code == 200
+
+    failed = failed_response.json()
+
+    assert failed["status"] == "failed"
+    assert failed["attempt"] == 1
+    assert failed["failed_at"] is not None
+    assert failed["error"] is not None
+
+    statuses = {
+        step["name"]: step["status"]
+        for step in failed["steps"]
+    }
+
+    assert statuses["validate-request"] == "completed"
+    assert statuses["prepare-service"] == "failed"
+    assert statuses["register-service"] == "pending"
+
+    retry_response = httpx.post(
+        (
+            f"{workflow_api}"
+            f"/workflows/executions/"
+            f"{failed['execution_id']}/retry"
+        ),
+        timeout=10.0
+    )
+
+    assert retry_response.status_code == 200
+
+    retried = retry_response.json()
+
+    assert retried["status"] == "completed"
+    assert retried["attempt"] == 2
+    assert (
+        retried["parent_execution_id"]
+        == failed["execution_id"]
+    )
+
+    assert retried["execution_id"] != failed["execution_id"]
+
+    assert all(
+        step["status"] == "completed"
+        for step in retried["steps"]
+    )
+
+    persisted_response = httpx.get(
+        (
+            f"{workflow_api}"
+            f"/workflows/executions/"
+            f"{retried['execution_id']}"
+        ),
+        timeout=10.0
+    )
+
+    assert persisted_response.status_code == 200
+    assert (
+        persisted_response.json()["attempt"]
+        == 2
+    )

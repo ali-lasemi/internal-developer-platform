@@ -31,6 +31,8 @@ def _to_model(
         execution_id=record.execution_id,
         workflow=record.workflow,
         status=record.status,
+        attempt=record.attempt,
+        parent_execution_id=record.parent_execution_id,
         steps=[
             WorkflowStep(
                 name=step["name"],
@@ -70,7 +72,10 @@ def _persist(
 
 def execute_workflow(
     database: Session,
-    workflow_name: str
+    workflow_name: str,
+    fail_step: str | None = None,
+    attempt: int = 1,
+    parent_execution_id: str | None = None
 ) -> WorkflowExecution:
     execution_id = uuid4().hex
 
@@ -96,6 +101,8 @@ def execute_workflow(
         execution_id=execution_id,
         workflow=workflow_name,
         status="pending",
+        attempt=attempt,
+        parent_execution_id=parent_execution_id,
         steps=steps,
         started_at=_utcnow(),
         completed_at=None,
@@ -115,91 +122,97 @@ def execute_workflow(
         record
     )
 
-    try:
-        current_steps = list(
-            record.steps
+    current_steps = list(
+        record.steps
+    )
+
+    for index, step in enumerate(
+        current_steps
+    ):
+        started_at = _utcnow()
+
+        current_steps[index] = {
+            **step,
+            "status": "running",
+            "started_at": started_at.isoformat(),
+            "completed_at": None,
+            "error": None
+        }
+
+        record.steps = list(
+            current_steps
         )
 
-        for index, step in enumerate(
-            current_steps
-        ):
-            started_at = _utcnow()
+        _persist(
+            database,
+            record
+        )
 
-            current_steps[index] = {
-                **step,
-                "status": "running",
-                "started_at": started_at.isoformat(),
-                "completed_at": None,
-                "error": None
-            }
-
-            record.steps = list(
-                current_steps
+        if fail_step == step["name"]:
+            error = (
+                f"Injected workflow failure "
+                f"at step {step['name']}"
             )
-
-            _persist(
-                database,
-                record
-            )
-
-            completed_at = _utcnow()
 
             current_steps[index] = {
                 **current_steps[index],
-                "status": "completed",
-                "completed_at": (
-                    completed_at.isoformat()
-                )
+                "status": "failed",
+                "error": error
             }
 
             record.steps = list(
                 current_steps
             )
 
+            for pending_index in range(
+                index + 1,
+                len(current_steps)
+            ):
+                current_steps[pending_index] = {
+                    **current_steps[pending_index],
+                    "status": "pending"
+                }
+
+            record.steps = list(
+                current_steps
+            )
+            record.status = "failed"
+            record.failed_at = _utcnow()
+            record.error = error
+
             _persist(
                 database,
                 record
             )
 
-        record.status = "completed"
-        record.completed_at = _utcnow()
+            return _to_model(
+                record
+            )
 
-        _persist(
-            database,
-            record
-        )
+        completed_at = _utcnow()
 
-    except Exception as exc:
-        record.status = "failed"
-        record.failed_at = _utcnow()
-        record.error = str(
-            exc
-        )
+        current_steps[index] = {
+            **current_steps[index],
+            "status": "completed",
+            "completed_at": completed_at.isoformat()
+        }
 
-        current_steps = list(
-            record.steps
-        )
-
-        for index, step in enumerate(
+        record.steps = list(
             current_steps
-        ):
-            if step["status"] == "running":
-                current_steps[index] = {
-                    **step,
-                    "status": "failed",
-                    "error": str(
-                        exc
-                    )
-                }
-
-                break
-
-        record.steps = current_steps
+        )
 
         _persist(
             database,
             record
         )
+
+    record.status = "completed"
+    record.completed_at = _utcnow()
+
+    _persist(
+        database,
+        record
+    )
 
     return _to_model(
         record
@@ -225,6 +238,37 @@ def get_execution(
 
     return _to_model(
         record
+    )
+
+
+def retry_execution(
+    database: Session,
+    execution_id: str
+) -> WorkflowExecution | None:
+    original = (
+        database
+        .query(WorkflowExecutionRecord)
+        .filter(
+            WorkflowExecutionRecord.execution_id
+            == execution_id
+        )
+        .first()
+    )
+
+    if original is None:
+        return None
+
+    if original.status != "failed":
+        raise ValueError(
+            "Only failed workflow executions can be retried"
+        )
+
+    return execute_workflow(
+        database=database,
+        workflow_name=original.workflow,
+        fail_step=None,
+        attempt=original.attempt + 1,
+        parent_execution_id=original.execution_id
     )
 
 
