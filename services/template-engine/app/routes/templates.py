@@ -1,3 +1,6 @@
+import hashlib
+import json
+
 from fastapi import APIRouter
 from fastapi import HTTPException
 
@@ -43,6 +46,21 @@ def get_template(
         version=template.version,
         type=template.type
     )
+
+
+def _checksum(
+    files: dict[str, str]
+):
+    payload = json.dumps(
+        files,
+        sort_keys=True
+    ).encode(
+        "utf-8"
+    )
+
+    return hashlib.sha256(
+        payload
+    ).hexdigest()
 
 
 @router.post(
@@ -115,12 +133,29 @@ def render_template(
             "uvicorn\n"
         )
 
+        files["Dockerfile"] = (
+            "FROM python:3.12-slim\n"
+            "WORKDIR /app\n"
+            "COPY requirements.txt .\n"
+            "RUN pip install --no-cache-dir -r requirements.txt\n"
+            "COPY . .\n"
+            "CMD [\"uvicorn\", \"app.main:app\", "
+            "\"--host\", \"0.0.0.0\", \"--port\", \"8000\"]\n"
+        )
+
     elif template_name == "worker-service":
         files["worker.py"] = (
             "def run():\n"
             "    return 'worker-ready'\n\n"
             "if __name__ == '__main__':\n"
             "    run()\n"
+        )
+
+        files["Dockerfile"] = (
+            "FROM python:3.12-slim\n"
+            "WORKDIR /app\n"
+            "COPY . .\n"
+            "CMD [\"python\", \"worker.py\"]\n"
         )
 
     elif template_name == "scheduled-job":
@@ -131,10 +166,59 @@ def render_template(
             "    run()\n"
         )
 
+        files["Dockerfile"] = (
+            "FROM python:3.12-slim\n"
+            "WORKDIR /app\n"
+            "COPY . .\n"
+            "CMD [\"python\", \"job.py\"]\n"
+        )
+
+    checksum = _checksum(
+        files
+    )
+
+    manifest = {
+        "api_version": "platform.internal/v1",
+        "kind": "ServiceScaffold",
+        "metadata": {
+            "name": service_name,
+            "owner": owner,
+            "environment": environment
+        },
+        "template": {
+            "name": template.name,
+            "version": template.version,
+            "type": template.type
+        },
+        "repository": repository,
+        "artifact": {
+            "file_count": len(
+                files
+            ),
+            "checksum": checksum,
+            "checksum_algorithm": "sha256"
+        },
+        "files": [
+            {
+                "path": path,
+                "bytes": len(
+                    content.encode(
+                        "utf-8"
+                    )
+                )
+            }
+            for path, content in sorted(
+                files.items()
+            )
+        ]
+    }
+
     return {
         "template": template.name,
         "version": template.version,
         "type": template.type,
         "service": service_name,
-        "files": files
+        "files": files,
+        "manifest": manifest,
+        "checksum": checksum
     }

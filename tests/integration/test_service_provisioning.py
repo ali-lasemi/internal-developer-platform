@@ -1260,3 +1260,157 @@ def test_portal_template_preview():
 
     assert payload["template"] == "backend-service"
     assert "service.yaml" in payload["files"]
+
+def test_scaffold_manifest_contract():
+    template_api = os.getenv(
+        "TEMPLATE_API_URL",
+        "http://localhost:8002"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    response = httpx.post(
+        (
+            f"{template_api}"
+            "/templates/backend-service/render"
+        ),
+        json={
+            "name": f"manifest-{suffix}",
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"manifest-{suffix}"
+            ),
+            "environment": "development"
+        },
+        timeout=10.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    manifest = payload["manifest"]
+
+    assert (
+        manifest["api_version"]
+        == "platform.internal/v1"
+    )
+
+    assert (
+        manifest["kind"]
+        == "ServiceScaffold"
+    )
+
+    assert (
+        manifest["template"]["name"]
+        == "backend-service"
+    )
+
+    assert (
+        manifest["artifact"]["file_count"]
+        >= 4
+    )
+
+    assert (
+        manifest["artifact"][
+            "checksum_algorithm"
+        ]
+        == "sha256"
+    )
+
+    assert len(
+        manifest["artifact"]["checksum"]
+    ) == 64
+
+
+def test_provisioning_returns_artifact_manifest():
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = (
+        f"artifact-{suffix}"
+    )
+
+    session = create_authenticated_session()
+
+    response = httpx.post(
+        (
+            f"{PLATFORM_API}"
+            "/api/v1/provision/services"
+        ),
+        headers={
+            "Authorization": (
+                f"Bearer "
+                f"{session['access_token']}"
+            )
+        },
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Artifact contract integration test"
+            ),
+            "template": "backend-service",
+            "environment": "development"
+        },
+        timeout=20.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    manifest = payload[
+        "artifact_manifest"
+    ]
+
+    assert manifest is not None
+
+    assert (
+        manifest["metadata"]["name"]
+        == service_name
+    )
+
+    assert (
+        manifest["artifact"]["file_count"]
+        >= 4
+    )
+
+
+def test_portal_scaffold_preview():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    response = httpx.post(
+        (
+            f"{portal_api}"
+            "/portal/scaffolds/"
+            "backend-service/preview"
+        ),
+        json={
+            "name": f"portal-scaffold-{suffix}",
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"portal-scaffold-{suffix}"
+            ),
+            "environment": "development"
+        },
+        timeout=10.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert "manifest" in payload
+    assert "checksum" in payload
+    assert "Dockerfile" in payload["files"]

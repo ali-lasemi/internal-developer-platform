@@ -306,3 +306,35 @@ async def template_preview(
         ),
         payload
     )
+
+async def scaffold_preview(
+    template_name: str,
+    payload: dict
+):
+    rendered = await template_preview(
+        template_name,
+        payload
+    )
+
+    return {
+        "template": rendered[
+            "template"
+        ],
+        "version": rendered[
+            "version"
+        ],
+        "service": rendered[
+            "service"
+        ],
+        "manifest": rendered[
+            "manifest"
+        ],
+        "checksum": rendered[
+            "checksum"
+        ],
+        "files": list(
+            rendered[
+                "files"
+            ].keys()
+        )
+    }

@@ -51,7 +51,7 @@ async def provision_service(
                 "template": request.template,
                 "template_version": "unknown",
                 "template_status": "not_found",
-                "rendered_template": None,
+                "rendered_template": None,`r`n                "artifact_manifest": None,
                 "policy": "not_evaluated",
                 "catalog": "not_registered",
                 "workflow": "not_started",
@@ -112,7 +112,7 @@ async def provision_service(
                 "template": template_result["name"],
                 "template_version": template_result["version"],
                 "template_status": "resolved",
-                "rendered_template": None,
+                "rendered_template": None,`r`n                "artifact_manifest": None,
                 "policy": "denied",
                 "catalog": "not_registered",
                 "workflow": "not_started",
@@ -139,6 +139,12 @@ async def provision_service(
 
         rendered_template = (
             render_response.json()
+        )
+
+        artifact_manifest = (
+            rendered_template.get(
+                "manifest"
+            )
         )
 
         catalog_response = await client.post(
@@ -204,6 +210,7 @@ async def provision_service(
             "template_version": template_result["version"],
             "template_status": "resolved",
             "rendered_template": rendered_template,
+            "artifact_manifest": artifact_manifest,
             "policy": "allowed",
             "catalog": "registered",
             "workflow": workflow_status,
