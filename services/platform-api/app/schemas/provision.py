@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel
+from pydantic import BaseModel
 from pydantic import Field
 
 
@@ -24,6 +24,11 @@ class ProvisionPolicyViolation(BaseModel):
     message: str
 
 
+class ProvisionWorkflowStep(BaseModel):
+    name: str
+    status: str
+
+
 class ProvisionServiceResponse(BaseModel):
     service: str
     owner: str
@@ -34,6 +39,10 @@ class ProvisionServiceResponse(BaseModel):
     policy: str
     catalog: str
     workflow: str
+    workflow_execution_id: str | None = None
+    workflow_steps: list[ProvisionWorkflowStep] = Field(
+        default_factory=list
+    )
     status: str
 
     violations: list[

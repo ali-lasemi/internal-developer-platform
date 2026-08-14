@@ -1,4 +1,4 @@
-﻿import os
+import os
 import uuid
 
 import httpx
@@ -143,6 +143,13 @@ def test_complete_service_provisioning_journey():
     assert result["template_status"] == "resolved"
     assert result["policy"] == "allowed"
     assert result["catalog"] == "registered"
+    assert result["workflow"] == "completed"
+    assert result["workflow_execution_id"]
+    assert len(result["workflow_steps"]) >= 1
+    assert all(
+        step["status"] == "completed"
+        for step in result["workflow_steps"]
+    )
 
     catalog_response = httpx.get(
         f"{CATALOG_API}/catalog",

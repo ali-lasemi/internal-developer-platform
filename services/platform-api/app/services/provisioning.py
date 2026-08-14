@@ -1,4 +1,4 @@
-﻿import os
+import os
 
 import httpx
 
@@ -54,6 +54,8 @@ async def provision_service(
                 "policy": "not_evaluated",
                 "catalog": "not_registered",
                 "workflow": "not_started",
+                "workflow_execution_id": None,
+                "workflow_steps": [],
                 "status": "rejected",
                 "violations": []
             }
@@ -107,6 +109,8 @@ async def provision_service(
                 "policy": "denied",
                 "catalog": "not_registered",
                 "workflow": "not_started",
+                "workflow_execution_id": None,
+                "workflow_steps": [],
                 "status": "rejected",
                 "violations": violations
             }
@@ -140,13 +144,20 @@ async def provision_service(
 
         workflow_response.raise_for_status()
 
-        workflow_status = (
-            workflow_response
-            .json()
-            .get(
-                "status",
-                "unknown"
-            )
+        workflow_result = workflow_response.json()
+
+        workflow_status = workflow_result.get(
+            "status",
+            "unknown"
+        )
+
+        workflow_execution_id = workflow_result.get(
+            "execution_id"
+        )
+
+        workflow_steps = workflow_result.get(
+            "steps",
+            []
         )
 
         await publish_service_provisioning_started_event(
@@ -165,6 +176,8 @@ async def provision_service(
             "policy": "allowed",
             "catalog": "registered",
             "workflow": workflow_status,
+            "workflow_execution_id": workflow_execution_id,
+            "workflow_steps": workflow_steps,
             "status": "provisioning",
             "violations": []
         }
