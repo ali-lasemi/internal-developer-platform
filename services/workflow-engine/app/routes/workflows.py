@@ -1,10 +1,14 @@
 from fastapi import APIRouter
+from fastapi import Depends
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 
+from app.db.database import get_db
 from app.models.execution import WorkflowExecution
 from app.models.workflow import Workflow
 from app.services.execution import execute_workflow
 from app.services.execution import get_execution
+from app.services.execution import list_executions
 
 
 router = APIRouter(
@@ -37,10 +41,28 @@ def register_workflow(
     response_model=WorkflowExecution
 )
 def start_workflow(
-    name: str
+    name: str,
+    database: Session = Depends(
+        get_db
+    )
 ):
     return execute_workflow(
+        database,
         name
+    )
+
+
+@router.get(
+    "/executions",
+    response_model=list[WorkflowExecution]
+)
+def read_executions(
+    database: Session = Depends(
+        get_db
+    )
+):
+    return list_executions(
+        database
     )
 
 
@@ -49,9 +71,13 @@ def start_workflow(
     response_model=WorkflowExecution
 )
 def read_execution(
-    execution_id: str
+    execution_id: str,
+    database: Session = Depends(
+        get_db
+    )
 ):
     execution = get_execution(
+        database,
         execution_id
     )
 

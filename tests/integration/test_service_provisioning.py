@@ -426,3 +426,67 @@ def test_unknown_template_is_rejected():
     assert result["catalog"] == "not_registered"
     assert result["workflow"] == "not_started"
     assert result["status"] == "rejected"
+
+
+def test_workflow_execution_is_persisted():
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = f"workflow-persist-{suffix}"
+
+    tokens = create_authenticated_session()
+
+    response = httpx.post(
+        f"{PLATFORM_API}/api/v1/provision/services",
+        headers={
+            "Authorization": (
+                f"Bearer {tokens['access_token']}"
+            )
+        },
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                f"https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Persistent workflow execution test"
+            ),
+            "template": "backend-service",
+            "environment": "development"
+        },
+        timeout=20.0
+    )
+
+    assert response.status_code == 200
+
+    result = response.json()
+
+    execution_id = result[
+        "workflow_execution_id"
+    ]
+
+    assert execution_id
+
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    execution_response = httpx.get(
+        (
+            f"{workflow_api}"
+            f"/workflows/executions/"
+            f"{execution_id}"
+        ),
+        timeout=10.0
+    )
+
+    assert execution_response.status_code == 200
+
+    execution = execution_response.json()
+
+    assert execution["execution_id"] == execution_id
+    assert execution["workflow"] == "service-creation"
+    assert execution["status"] == "completed"
+    assert len(execution["steps"]) >= 1
