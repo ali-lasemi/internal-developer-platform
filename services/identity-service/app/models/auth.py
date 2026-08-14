@@ -1,4 +1,6 @@
-﻿from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel
 from pydantic import EmailStr
 from pydantic import Field
 
@@ -38,4 +40,4 @@ class UserRegistration(BaseModel):
         max_length=100
     )
 
-    role: str = "developer"
+    role: Literal["developer"] = "developer"

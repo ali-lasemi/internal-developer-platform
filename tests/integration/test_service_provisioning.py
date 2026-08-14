@@ -750,3 +750,57 @@ def test_workflow_failure_and_retry_events_are_published():
         "workflow.execution.retry.requested"
         in event_types
     )
+
+def test_self_registration_cannot_escalate_role():
+    suffix = uuid.uuid4().hex[:8]
+
+    username = f"security-{suffix}"
+
+    response = httpx.post(
+        f"{IDENTITY_API}/auth/register",
+        json={
+            "username": username,
+            "email": f"{username}@example.com",
+            "password": "integration-password",
+            "team": "platform-team",
+            "role": "admin"
+        },
+        timeout=10.0
+    )
+
+    assert response.status_code == 422
+
+
+def test_runtime_dependency_readiness():
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    workflow_ready = httpx.get(
+        f"{workflow_api}/ready",
+        timeout=10.0
+    )
+
+    assert workflow_ready.status_code == 200
+
+    workflow_checks = workflow_ready.json()[
+        "checks"
+    ]
+
+    assert workflow_checks["database"] is True
+    assert workflow_checks["event_platform"] is True
+
+    catalog_ready = httpx.get(
+        f"{CATALOG_API}/ready",
+        timeout=10.0
+    )
+
+    assert catalog_ready.status_code == 200
+
+    catalog_checks = catalog_ready.json()[
+        "checks"
+    ]
+
+    assert catalog_checks["database"] is True
+    assert catalog_checks["event_platform"] is True
