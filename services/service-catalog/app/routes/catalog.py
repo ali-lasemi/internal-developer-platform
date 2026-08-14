@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import ServiceRecord
+from app.events.lifecycle_events import publish_lifecycle_changed_event
 from app.models.catalog import CatalogService
 from app.models.catalog import CatalogServiceCreate
 from app.models.lifecycle import LifecycleTransitionRequest
@@ -115,7 +116,7 @@ def register_service(
     "/{service_id}/lifecycle",
     response_model=LifecycleTransitionResponse
 )
-def transition_lifecycle(
+async def transition_lifecycle(
     service_id: int,
     request: LifecycleTransitionRequest,
     database: Session = Depends(
@@ -158,6 +159,20 @@ def transition_lifecycle(
     database.refresh(
         service
     )
+
+    try:
+        await publish_lifecycle_changed_event(
+            service_name=service.name,
+            owner=service.owner,
+            previous_lifecycle=previous,
+            lifecycle=service.lifecycle
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Lifecycle event publishing failed: {exc}"
+        ) from exc
 
     return LifecycleTransitionResponse(
         id=service.id,

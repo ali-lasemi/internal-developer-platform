@@ -260,3 +260,58 @@ def test_denied_service_is_blocked():
     assert result["catalog"] == "not_registered"
     assert result["workflow"] == "not_started"
     assert result["status"] == "rejected"
+
+
+def test_lifecycle_change_emits_domain_event():
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = f"events-api-{suffix}"
+
+    create = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": f"https://github.com/example/{service_name}",
+            "description": "Lifecycle event validation service",
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create.status_code == 201
+
+    service_id = create.json()["id"]
+
+    transition = httpx.post(
+        f"{CATALOG_API}/catalog/{service_id}/lifecycle",
+        json={
+            "lifecycle": "development"
+        },
+        timeout=10.0
+    )
+
+    assert transition.status_code == 200
+
+    events_response = httpx.get(
+        f"{EVENT_API}/events",
+        timeout=10.0
+    )
+
+    assert events_response.status_code == 200
+
+    matching = [
+        event
+        for event in events_response.json()
+        if (
+            event["type"] == "service.lifecycle.changed"
+            and event["subject"] == service_name
+        )
+    ]
+
+    assert len(matching) >= 1
+
+    latest = matching[-1]
+
+    assert latest["data"]["previous_lifecycle"] == "created"
+    assert latest["data"]["lifecycle"] == "development"
