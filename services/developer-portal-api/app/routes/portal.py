@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from fastapi import HTTPException
+from fastapi import Header
 
 from app.models.portal import PortalAction
 from app.services.aggregator import catalog_services
@@ -7,6 +8,7 @@ from app.services.aggregator import developer_dashboard
 from app.services.aggregator import operational_overview
 from app.services.aggregator import owner_view
 from app.services.aggregator import platform_status
+from app.services.aggregator import provision_from_portal
 from app.services.aggregator import recent_events
 from app.services.aggregator import service_detail
 from app.services.aggregator import templates
@@ -164,3 +166,39 @@ async def preview_scaffold(
                 exc
             )
         ) from exc
+
+@router.post(
+    "/services/provision"
+)
+async def provision_service(
+    payload: dict,
+    authorization: str | None = Header(
+        default=None
+    )
+):
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header required"
+        )
+
+    result = await provision_from_portal(
+        payload,
+        authorization
+    )
+
+    status_code = result[
+        "status_code"
+    ]
+
+    response_payload = result[
+        "payload"
+    ]
+
+    if status_code >= 400:
+        raise HTTPException(
+            status_code=status_code,
+            detail=response_payload
+        )
+
+    return response_payload

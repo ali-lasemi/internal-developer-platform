@@ -11,7 +11,7 @@ app = FastAPI(
         "Developer-facing aggregation layer for "
         "internal platform capabilities."
     ),
-    version="0.3.0"
+    version="0.4.0"
 )
 
 app.include_router(

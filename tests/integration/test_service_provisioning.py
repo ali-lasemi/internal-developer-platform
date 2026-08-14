@@ -1414,3 +1414,116 @@ def test_portal_scaffold_preview():
     assert "manifest" in payload
     assert "checksum" in payload
     assert "Dockerfile" in payload["files"]
+
+def test_portal_self_service_requires_authentication():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    response = httpx.post(
+        (
+            f"{portal_api}"
+            "/portal/services/provision"
+        ),
+        json={
+            "name": "unauthorized-service",
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                "unauthorized-service"
+            ),
+            "description": (
+                "Unauthorized provisioning should fail"
+            ),
+            "template": "backend-service",
+            "environment": "development"
+        },
+        timeout=10.0
+    )
+
+    assert response.status_code == 401
+
+
+def test_portal_self_service_provisioning():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = (
+        f"portal-create-{suffix}"
+    )
+
+    session = create_authenticated_session()
+
+    response = httpx.post(
+        (
+            f"{portal_api}"
+            "/portal/services/provision"
+        ),
+        headers={
+            "Authorization": (
+                f"Bearer "
+                f"{session['access_token']}"
+            )
+        },
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Developer portal self service "
+                "provisioning integration test"
+            ),
+            "template": "backend-service",
+            "environment": "development"
+        },
+        timeout=20.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload["service"] == service_name
+    assert payload["policy"] == "allowed"
+    assert payload["catalog"] == "registered"
+
+    assert (
+        payload["template_status"]
+        == "resolved"
+    )
+
+    assert (
+        payload["artifact_manifest"]
+        is not None
+    )
+
+    assert (
+        payload["workflow_execution_id"]
+        is not None
+    )
+
+    catalog_response = httpx.get(
+        f"{CATALOG_API}/catalog",
+        params={
+            "owner": "platform-team"
+        },
+        timeout=10.0
+    )
+
+    assert catalog_response.status_code == 200
+
+    names = {
+        service["name"]
+        for service
+        in catalog_response.json()
+    }
+
+    assert service_name in names

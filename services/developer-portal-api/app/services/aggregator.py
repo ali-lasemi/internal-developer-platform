@@ -8,6 +8,7 @@ from app.clients.platform import TEMPLATE_URL
 from app.clients.platform import WORKFLOW_URL
 from app.clients.platform import get_json
 from app.clients.platform import post_json
+from app.clients.platform import post_json_with_headers
 from app.clients.platform import service_status
 
 
@@ -337,4 +338,24 @@ async def scaffold_preview(
                 "files"
             ].keys()
         )
+    }
+
+async def provision_from_portal(
+    payload: dict,
+    authorization: str
+):
+    response = await post_json_with_headers(
+        (
+            f"{PLATFORM_API_URL}"
+            "/api/v1/provision/services"
+        ),
+        payload,
+        {
+            "Authorization": authorization
+        }
+    )
+
+    return {
+        "status_code": response.status_code,
+        "payload": response.json()
     }
