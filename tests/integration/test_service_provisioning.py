@@ -315,3 +315,62 @@ def test_lifecycle_change_emits_domain_event():
 
     assert latest["data"]["previous_lifecycle"] == "created"
     assert latest["data"]["lifecycle"] == "development"
+
+
+def test_lifecycle_history_is_persisted():
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = f"history-api-{suffix}"
+
+    create = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": f"https://github.com/example/{service_name}",
+            "description": "Lifecycle history test service",
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create.status_code == 201
+
+    service_id = create.json()["id"]
+
+    development = httpx.post(
+        f"{CATALOG_API}/catalog/{service_id}/lifecycle",
+        json={
+            "lifecycle": "development"
+        },
+        timeout=10.0
+    )
+
+    assert development.status_code == 200
+
+    staging = httpx.post(
+        f"{CATALOG_API}/catalog/{service_id}/lifecycle",
+        json={
+            "lifecycle": "staging"
+        },
+        timeout=10.0
+    )
+
+    assert staging.status_code == 200
+
+    history_response = httpx.get(
+        f"{CATALOG_API}/catalog/{service_id}/lifecycle/history",
+        timeout=10.0
+    )
+
+    assert history_response.status_code == 200
+
+    history = history_response.json()
+
+    assert len(history) == 2
+
+    assert history[0]["previous_lifecycle"] == "created"
+    assert history[0]["lifecycle"] == "development"
+
+    assert history[1]["previous_lifecycle"] == "development"
+    assert history[1]["lifecycle"] == "staging"

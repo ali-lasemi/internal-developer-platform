@@ -4,10 +4,12 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.db.models import ServiceLifecycleHistoryRecord
 from app.db.models import ServiceRecord
 from app.events.lifecycle_events import publish_lifecycle_changed_event
 from app.models.catalog import CatalogService
 from app.models.catalog import CatalogServiceCreate
+from app.models.history import LifecycleHistoryEntry
 from app.models.lifecycle import LifecycleTransitionRequest
 from app.models.lifecycle import LifecycleTransitionResponse
 from app.services.lifecycle import validate_transition
@@ -64,6 +66,45 @@ def get_service(
         )
 
     return service
+
+
+@router.get(
+    "/{service_id}/lifecycle/history",
+    response_model=list[LifecycleHistoryEntry]
+)
+def get_lifecycle_history(
+    service_id: int,
+    database: Session = Depends(
+        get_db
+    )
+):
+    service = (
+        database
+        .query(ServiceRecord)
+        .filter(
+            ServiceRecord.id == service_id
+        )
+        .first()
+    )
+
+    if service is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Service not found"
+        )
+
+    return (
+        database
+        .query(ServiceLifecycleHistoryRecord)
+        .filter(
+            ServiceLifecycleHistoryRecord.service_id
+            == service_id
+        )
+        .order_by(
+            ServiceLifecycleHistoryRecord.id.asc()
+        )
+        .all()
+    )
 
 
 @router.post(
@@ -154,6 +195,16 @@ async def transition_lifecycle(
         )
 
     service.lifecycle = request.lifecycle
+
+    history = ServiceLifecycleHistoryRecord(
+        service_id=service.id,
+        previous_lifecycle=previous,
+        lifecycle=request.lifecycle
+    )
+
+    database.add(
+        history
+    )
 
     database.commit()
     database.refresh(

@@ -1,13 +1,17 @@
-﻿from sqlalchemy import Column
+﻿from datetime import datetime
+from datetime import timezone
+
+from sqlalchemy import Column
+from sqlalchemy import DateTime
+from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import String
-from sqlalchemy import Text
 
 from app.db.database import Base
 
 
-class ServiceRecord(Base):
-    __tablename__ = "services"
+class ServiceLifecycleHistoryRecord(Base):
+    __tablename__ = "service_lifecycle_history"
 
     id = Column(
         Integer,
@@ -15,31 +19,30 @@ class ServiceRecord(Base):
         index=True
     )
 
-    name = Column(
-        String(100),
-        unique=True,
+    service_id = Column(
+        Integer,
+        ForeignKey(
+            "services.id",
+            ondelete="CASCADE"
+        ),
         nullable=False,
         index=True
     )
 
-    owner = Column(
-        String(100),
-        nullable=False,
-        index=True
-    )
-
-    repository = Column(
-        String(500),
-        nullable=False
-    )
-
-    description = Column(
-        Text,
+    previous_lifecycle = Column(
+        String(50),
         nullable=False
     )
 
     lifecycle = Column(
         String(50),
+        nullable=False
+    )
+
+    changed_at = Column(
+        DateTime(timezone=True),
         nullable=False,
-        default="created"
+        default=lambda: datetime.now(
+            timezone.utc
+        )
     )
