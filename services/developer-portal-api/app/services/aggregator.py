@@ -179,7 +179,7 @@ async def developer_dashboard():
         platform,
         services,
         workflows,
-        templates,
+        template_items,
         events
     ) = await asyncio.gather(
         platform_status(),
@@ -221,7 +221,7 @@ async def developer_dashboard():
                 failed_workflows
             ),
             "templates": len(
-                templates
+                template_items
             ),
             "recent_events": len(
                 events
@@ -229,7 +229,7 @@ async def developer_dashboard():
         },
         "services": services[-20:],
         "workflows": workflows[:20],
-        "templates": templates,
+        "templates": template_items,
         "events": events[-20:]
     }
 

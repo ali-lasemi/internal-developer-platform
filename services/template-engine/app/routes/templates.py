@@ -52,7 +52,7 @@ def render_template(
     template_name: str,
     payload: dict
 ):
-    template = template_repository.get(
+    template = resolve_template(
         template_name
     )
 
@@ -102,9 +102,7 @@ def render_template(
     }
 
     if template_name == "backend-service":
-        files[
-            "app/main.py"
-        ] = (
+        files["app/main.py"] = (
             "from fastapi import FastAPI\n\n"
             "app = FastAPI()\n\n"
             "@app.get('/health')\n"
@@ -112,14 +110,13 @@ def render_template(
             "    return {'status': 'ok'}\n"
         )
 
-        files[
-            "requirements.txt"
-        ] = "fastapi\nuvicorn\n"
+        files["requirements.txt"] = (
+            "fastapi\n"
+            "uvicorn\n"
+        )
 
     elif template_name == "worker-service":
-        files[
-            "worker.py"
-        ] = (
+        files["worker.py"] = (
             "def run():\n"
             "    return 'worker-ready'\n\n"
             "if __name__ == '__main__':\n"
@@ -127,9 +124,7 @@ def render_template(
         )
 
     elif template_name == "scheduled-job":
-        files[
-            "job.py"
-        ] = (
+        files["job.py"] = (
             "def run():\n"
             "    return 'job-completed'\n\n"
             "if __name__ == '__main__':\n"
@@ -137,8 +132,9 @@ def render_template(
         )
 
     return {
-        "template": template_name,
+        "template": template.name,
         "version": template.version,
+        "type": template.type,
         "service": service_name,
         "files": files
     }

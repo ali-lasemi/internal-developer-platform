@@ -51,6 +51,7 @@ async def provision_service(
                 "template": request.template,
                 "template_version": "unknown",
                 "template_status": "not_found",
+                "rendered_template": None,
                 "policy": "not_evaluated",
                 "catalog": "not_registered",
                 "workflow": "not_started",
@@ -67,7 +68,10 @@ async def provision_service(
         )
 
         policy_response = await client.post(
-            f"{POLICY_ENGINE_URL}/policies/evaluate",
+            (
+                f"{POLICY_ENGINE_URL}"
+                "/policies/evaluate"
+            ),
             json={
                 "service_name": request.name,
                 "owner": request.owner,
@@ -79,7 +83,9 @@ async def provision_service(
 
         policy_response.raise_for_status()
 
-        policy_result = policy_response.json()
+        policy_result = (
+            policy_response.json()
+        )
 
         decision = policy_result.get(
             "decision",
@@ -106,6 +112,7 @@ async def provision_service(
                 "template": template_result["name"],
                 "template_version": template_result["version"],
                 "template_status": "resolved",
+                "rendered_template": None,
                 "policy": "denied",
                 "catalog": "not_registered",
                 "workflow": "not_started",
@@ -114,6 +121,25 @@ async def provision_service(
                 "status": "rejected",
                 "violations": violations
             }
+
+        render_response = await client.post(
+            (
+                f"{TEMPLATE_ENGINE_URL}"
+                f"/templates/{request.template}/render"
+            ),
+            json={
+                "name": request.name,
+                "owner": request.owner,
+                "repository": request.repository,
+                "environment": request.environment
+            }
+        )
+
+        render_response.raise_for_status()
+
+        rendered_template = (
+            render_response.json()
+        )
 
         catalog_response = await client.post(
             f"{CATALOG_URL}/catalog",
@@ -144,15 +170,19 @@ async def provision_service(
 
         workflow_response.raise_for_status()
 
-        workflow_result = workflow_response.json()
+        workflow_result = (
+            workflow_response.json()
+        )
 
         workflow_status = workflow_result.get(
             "status",
             "unknown"
         )
 
-        workflow_execution_id = workflow_result.get(
-            "execution_id"
+        workflow_execution_id = (
+            workflow_result.get(
+                "execution_id"
+            )
         )
 
         workflow_steps = workflow_result.get(
@@ -173,6 +203,7 @@ async def provision_service(
             "template": template_result["name"],
             "template_version": template_result["version"],
             "template_status": "resolved",
+            "rendered_template": rendered_template,
             "policy": "allowed",
             "catalog": "registered",
             "workflow": workflow_status,
