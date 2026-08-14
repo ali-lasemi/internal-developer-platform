@@ -5,6 +5,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.db.models import WorkflowExecutionRecord
+from app.events.workflow_events import publish_workflow_event
 from app.models.execution import WorkflowExecution
 from app.models.execution import WorkflowStep
 
@@ -70,6 +71,29 @@ def _persist(
     )
 
 
+def _publish_safe(
+    event_type: str,
+    record: WorkflowExecutionRecord,
+    data: dict
+):
+    try:
+        publish_workflow_event(
+            event_type=event_type,
+            execution_id=record.execution_id,
+            workflow=record.workflow,
+            data={
+                "status": record.status,
+                "attempt": record.attempt,
+                "parent_execution_id": (
+                    record.parent_execution_id
+                ),
+                **data
+            }
+        )
+    except Exception:
+        pass
+
+
 def execute_workflow(
     database: Session,
     workflow_name: str,
@@ -122,6 +146,12 @@ def execute_workflow(
         record
     )
 
+    _publish_safe(
+        "workflow.execution.started",
+        record,
+        {}
+    )
+
     current_steps = list(
         record.steps
     )
@@ -148,6 +178,14 @@ def execute_workflow(
             record
         )
 
+        _publish_safe(
+            "workflow.step.started",
+            record,
+            {
+                "step": step["name"]
+            }
+        )
+
         if fail_step == step["name"]:
             error = (
                 f"Injected workflow failure "
@@ -164,18 +202,6 @@ def execute_workflow(
                 current_steps
             )
 
-            for pending_index in range(
-                index + 1,
-                len(current_steps)
-            ):
-                current_steps[pending_index] = {
-                    **current_steps[pending_index],
-                    "status": "pending"
-                }
-
-            record.steps = list(
-                current_steps
-            )
             record.status = "failed"
             record.failed_at = _utcnow()
             record.error = error
@@ -183,6 +209,23 @@ def execute_workflow(
             _persist(
                 database,
                 record
+            )
+
+            _publish_safe(
+                "workflow.step.failed",
+                record,
+                {
+                    "step": step["name"],
+                    "error": error
+                }
+            )
+
+            _publish_safe(
+                "workflow.execution.failed",
+                record,
+                {
+                    "error": error
+                }
             )
 
             return _to_model(
@@ -206,12 +249,26 @@ def execute_workflow(
             record
         )
 
+        _publish_safe(
+            "workflow.step.completed",
+            record,
+            {
+                "step": step["name"]
+            }
+        )
+
     record.status = "completed"
     record.completed_at = _utcnow()
 
     _persist(
         database,
         record
+    )
+
+    _publish_safe(
+        "workflow.execution.completed",
+        record,
+        {}
     )
 
     return _to_model(
@@ -262,6 +319,12 @@ def retry_execution(
         raise ValueError(
             "Only failed workflow executions can be retried"
         )
+
+    _publish_safe(
+        "workflow.execution.retry.requested",
+        original,
+        {}
+    )
 
     return execute_workflow(
         database=database,

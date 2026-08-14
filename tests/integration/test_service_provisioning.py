@@ -649,3 +649,104 @@ def test_failed_workflow_can_be_retried():
         persisted_response.json()["attempt"]
         == 2
     )
+
+def test_workflow_execution_events_are_published():
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    response = httpx.post(
+        (
+            f"{workflow_api}"
+            "/workflows/service-creation/execute"
+        ),
+        timeout=10.0
+    )
+
+    assert response.status_code == 200
+
+    execution = response.json()
+
+    assert execution["status"] == "completed"
+
+    events_response = httpx.get(
+        f"{EVENT_API}/events",
+        timeout=10.0
+    )
+
+    assert events_response.status_code == 200
+
+    execution_events = [
+        event
+        for event in events_response.json()
+        if event["subject"] == execution["execution_id"]
+    ]
+
+    event_types = {
+        event["type"]
+        for event in execution_events
+    }
+
+    assert "workflow.execution.started" in event_types
+    assert "workflow.step.started" in event_types
+    assert "workflow.step.completed" in event_types
+    assert "workflow.execution.completed" in event_types
+
+
+def test_workflow_failure_and_retry_events_are_published():
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    failed_response = httpx.post(
+        (
+            f"{workflow_api}"
+            "/workflows/service-creation/execute"
+        ),
+        params={
+            "fail_step": "prepare-service"
+        },
+        timeout=10.0
+    )
+
+    assert failed_response.status_code == 200
+
+    failed = failed_response.json()
+
+    retry_response = httpx.post(
+        (
+            f"{workflow_api}"
+            f"/workflows/executions/"
+            f"{failed['execution_id']}/retry"
+        ),
+        timeout=10.0
+    )
+
+    assert retry_response.status_code == 200
+
+    events_response = httpx.get(
+        f"{EVENT_API}/events",
+        timeout=10.0
+    )
+
+    assert events_response.status_code == 200
+
+    failed_events = [
+        event
+        for event in events_response.json()
+        if event["subject"] == failed["execution_id"]
+    ]
+
+    event_types = {
+        event["type"]
+        for event in failed_events
+    }
+
+    assert "workflow.execution.failed" in event_types
+    assert "workflow.step.failed" in event_types
+    assert (
+        "workflow.execution.retry.requested"
+        in event_types
+    )
