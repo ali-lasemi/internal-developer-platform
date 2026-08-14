@@ -204,6 +204,7 @@
       POLICY_ENGINE_URL: http://policy-engine:8000
       CATALOG_URL: http://service-catalog:8000
       WORKFLOW_ENGINE_URL: http://workflow-engine:8000
+      TEMPLATE_ENGINE_URL: http://template-engine:8000
       EVENT_PLATFORM_URL: http://event-platform:8000
       JWT_SECRET: ${JWT_SECRET:-local-development-secret}
     depends_on:
@@ -237,6 +238,7 @@ volumes:
 
   idp-redis-data:
     name: idp-redis-data
+
 
 
 

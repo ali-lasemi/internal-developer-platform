@@ -1,4 +1,4 @@
-import os
+﻿import os
 
 import httpx
 
@@ -23,6 +23,11 @@ WORKFLOW_ENGINE_URL = os.getenv(
     "http://workflow-engine:8000"
 )
 
+TEMPLATE_ENGINE_URL = os.getenv(
+    "TEMPLATE_ENGINE_URL",
+    "http://template-engine:8000"
+)
+
 
 async def provision_service(
     request: ProvisionServiceRequest
@@ -30,6 +35,34 @@ async def provision_service(
     async with httpx.AsyncClient(
         timeout=10.0
     ) as client:
+
+        template_response = await client.get(
+            (
+                f"{TEMPLATE_ENGINE_URL}"
+                f"/templates/{request.template}"
+            )
+        )
+
+        if template_response.status_code == 404:
+            return {
+                "service": request.name,
+                "owner": request.owner,
+                "environment": request.environment,
+                "template": request.template,
+                "template_version": "unknown",
+                "template_status": "not_found",
+                "policy": "not_evaluated",
+                "catalog": "not_registered",
+                "workflow": "not_started",
+                "status": "rejected",
+                "violations": []
+            }
+
+        template_response.raise_for_status()
+
+        template_result = (
+            template_response.json()
+        )
 
         policy_response = await client.post(
             f"{POLICY_ENGINE_URL}/policies/evaluate",
@@ -68,6 +101,9 @@ async def provision_service(
                 "service": request.name,
                 "owner": request.owner,
                 "environment": request.environment,
+                "template": template_result["name"],
+                "template_version": template_result["version"],
+                "template_status": "resolved",
                 "policy": "denied",
                 "catalog": "not_registered",
                 "workflow": "not_started",
@@ -96,7 +132,10 @@ async def provision_service(
         )
 
         workflow_response = await client.post(
-            f"{WORKFLOW_ENGINE_URL}/workflows/service-creation/execute"
+            (
+                f"{WORKFLOW_ENGINE_URL}"
+                "/workflows/service-creation/execute"
+            )
         )
 
         workflow_response.raise_for_status()
@@ -120,6 +159,9 @@ async def provision_service(
             "service": request.name,
             "owner": request.owner,
             "environment": request.environment,
+            "template": template_result["name"],
+            "template_version": template_result["version"],
+            "template_status": "resolved",
             "policy": "allowed",
             "catalog": "registered",
             "workflow": workflow_status,

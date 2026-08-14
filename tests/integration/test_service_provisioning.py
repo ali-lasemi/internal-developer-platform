@@ -138,6 +138,9 @@ def test_complete_service_provisioning_journey():
 
     result = response.json()
 
+    assert result["template"] == "backend-service"
+    assert result["template_version"] == "1.0.0"
+    assert result["template_status"] == "resolved"
     assert result["policy"] == "allowed"
     assert result["catalog"] == "registered"
 
@@ -374,3 +377,45 @@ def test_lifecycle_history_is_persisted():
 
     assert history[1]["previous_lifecycle"] == "development"
     assert history[1]["lifecycle"] == "staging"
+
+
+def test_unknown_template_is_rejected():
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = f"unknown-template-{suffix}"
+
+    tokens = create_authenticated_session()
+
+    response = httpx.post(
+        f"{PLATFORM_API}/api/v1/provision/services",
+        headers={
+            "Authorization": (
+                f"Bearer {tokens['access_token']}"
+            )
+        },
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                f"https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Unknown template validation service"
+            ),
+            "template": "does-not-exist",
+            "environment": "development"
+        },
+        timeout=20.0
+    )
+
+    assert response.status_code == 200
+
+    result = response.json()
+
+    assert result["template"] == "does-not-exist"
+    assert result["template_status"] == "not_found"
+    assert result["policy"] == "not_evaluated"
+    assert result["catalog"] == "not_registered"
+    assert result["workflow"] == "not_started"
+    assert result["status"] == "rejected"
