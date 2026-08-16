@@ -9,6 +9,7 @@ from app.services.aggregator import operational_overview
 from app.services.aggregator import owner_view
 from app.services.aggregator import platform_status
 from app.services.aggregator import provision_from_portal
+from app.services.aggregator import promote_service
 from app.services.aggregator import recent_events
 from app.services.aggregator import service_detail
 from app.services.aggregator import service_scorecard
@@ -264,3 +265,38 @@ async def quality_report(
     return await platform_quality_report(
         minimum_score
     )
+
+@router.post(
+    "/services/{service_id}/promote"
+)
+async def promote(
+    service_id: int,
+    target: str,
+    minimum_score: int = 75,
+    dry_run: bool = False
+):
+    try:
+        result = await promote_service(
+            service_id,
+            target,
+            minimum_score,
+            dry_run
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(
+                exc
+            )
+        ) from exc
+
+    if not result[
+        "allowed"
+    ]:
+        raise HTTPException(
+            status_code=409,
+            detail=result
+        )
+
+    return result

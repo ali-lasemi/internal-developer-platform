@@ -658,3 +658,75 @@ async def platform_quality_report(
         "compliance_rate": compliance_rate,
         "gates": gates
     }
+
+async def promote_service(
+    service_id: int,
+    target: str,
+    minimum_score: int = 75,
+    dry_run: bool = False
+):
+    service = await service_detail(
+        service_id
+    )
+
+    gate = await service_quality_gate(
+        service_id,
+        minimum_score
+    )
+
+    current = service.get(
+        "lifecycle"
+    )
+
+    if not gate[
+        "passed"
+    ]:
+        return {
+            "allowed": False,
+            "dry_run": dry_run,
+            "service_id": service_id,
+            "service": service.get(
+                "name"
+            ),
+            "current_lifecycle": current,
+            "target_lifecycle": target,
+            "quality_gate": gate,
+            "transition": None
+        }
+
+    if dry_run:
+        return {
+            "allowed": True,
+            "dry_run": True,
+            "service_id": service_id,
+            "service": service.get(
+                "name"
+            ),
+            "current_lifecycle": current,
+            "target_lifecycle": target,
+            "quality_gate": gate,
+            "transition": None
+        }
+
+    result = await post_json(
+        (
+            f"{CATALOG_URL}"
+            f"/catalog/{service_id}/lifecycle"
+        ),
+        {
+            "lifecycle": target
+        }
+    )
+
+    return {
+        "allowed": True,
+        "dry_run": False,
+        "service_id": service_id,
+        "service": service.get(
+            "name"
+        ),
+        "current_lifecycle": current,
+        "target_lifecycle": target,
+        "quality_gate": gate,
+        "transition": result
+    }

@@ -1855,3 +1855,210 @@ def test_quality_gate_threshold_is_bounded():
         ]
         == 100
     )
+
+def test_quality_gated_service_promotion():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = (
+        f"promotion-{suffix}"
+    )
+
+    create = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Quality gated promotion integration test"
+            ),
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create.status_code == 201
+
+    service_id = create.json()[
+        "id"
+    ]
+
+    dry_run = httpx.post(
+        (
+            f"{portal_api}"
+            f"/portal/services/"
+            f"{service_id}/promote"
+        ),
+        params={
+            "target": "development",
+            "minimum_score": 50,
+            "dry_run": "true"
+        },
+        timeout=10.0
+    )
+
+    assert dry_run.status_code == 200
+
+    dry_payload = dry_run.json()
+
+    assert dry_payload[
+        "allowed"
+    ] is True
+
+    assert dry_payload[
+        "dry_run"
+    ] is True
+
+    assert dry_payload[
+        "transition"
+    ] is None
+
+    promote_development = httpx.post(
+        (
+            f"{portal_api}"
+            f"/portal/services/"
+            f"{service_id}/promote"
+        ),
+        params={
+            "target": "development",
+            "minimum_score": 50
+        },
+        timeout=10.0
+    )
+
+    assert (
+        promote_development.status_code
+        == 200
+    )
+
+    development_payload = (
+        promote_development.json()
+    )
+
+    assert development_payload[
+        "transition"
+    ][
+        "lifecycle"
+    ] == "development"
+
+    promote_staging = httpx.post(
+        (
+            f"{portal_api}"
+            f"/portal/services/"
+            f"{service_id}/promote"
+        ),
+        params={
+            "target": "staging",
+            "minimum_score": 50
+        },
+        timeout=10.0
+    )
+
+    assert (
+        promote_staging.status_code
+        == 200
+    )
+
+    assert (
+        promote_staging.json()[
+            "transition"
+        ][
+            "lifecycle"
+        ]
+        == "staging"
+    )
+
+    promote_production = httpx.post(
+        (
+            f"{portal_api}"
+            f"/portal/services/"
+            f"{service_id}/promote"
+        ),
+        params={
+            "target": "production",
+            "minimum_score": 50
+        },
+        timeout=10.0
+    )
+
+    assert (
+        promote_production.status_code
+        == 200
+    )
+
+    production_payload = (
+        promote_production.json()
+    )
+
+    assert production_payload[
+        "transition"
+    ][
+        "lifecycle"
+    ] == "production"
+
+
+def test_quality_gate_can_block_promotion():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    create = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": f"blocked-{suffix}",
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"blocked-{suffix}"
+            ),
+            "description": "",
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create.status_code == 201
+
+    service_id = create.json()[
+        "id"
+    ]
+
+    response = httpx.post(
+        (
+            f"{portal_api}"
+            f"/portal/services/"
+            f"{service_id}/promote"
+        ),
+        params={
+            "target": "development",
+            "minimum_score": 100
+        },
+        timeout=10.0
+    )
+
+    assert response.status_code == 409
+
+    detail = response.json()[
+        "detail"
+    ]
+
+    assert detail[
+        "allowed"
+    ] is False
+
+    assert detail[
+        "quality_gate"
+    ][
+        "decision"
+    ] == "blocked"
