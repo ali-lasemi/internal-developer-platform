@@ -2298,3 +2298,154 @@ def test_portal_operations_exposes_delivery_status():
     assert "dead_letter" in payload[
         "event_delivery"
     ]
+
+def test_portal_identity_backed_authorization():
+    identity_api = os.getenv(
+        "IDENTITY_API_URL",
+        "http://localhost:8007"
+    )
+
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    username = (
+        f"portal-user-{suffix}"
+    )
+
+    team = (
+        f"team-{suffix}"
+    )
+
+    register = httpx.post(
+        f"{identity_api}/auth/register",
+        json={
+            "username": username,
+            "email": (
+                f"{username}@example.com"
+            ),
+            "password": "PortalTest123!",
+            "team": team
+        },
+        timeout=10.0
+    )
+
+    assert register.status_code == 201
+
+    login = httpx.post(
+        f"{identity_api}/auth/token",
+        json={
+            "username": username,
+            "password": "PortalTest123!"
+        },
+        timeout=10.0
+    )
+
+    assert login.status_code == 200
+
+    token = login.json()[
+        "access_token"
+    ]
+
+    headers = {
+        "Authorization": (
+            f"Bearer {token}"
+        )
+    }
+
+    me = httpx.get(
+        f"{portal_api}/portal/me",
+        headers=headers,
+        timeout=10.0
+    )
+
+    assert me.status_code == 200
+
+    identity = me.json()
+
+    assert identity[
+        "username"
+    ] == username
+
+    assert identity[
+        "team"
+    ] == team
+
+    forbidden = httpx.post(
+        (
+            f"{portal_api}"
+            "/portal/services/provision"
+        ),
+        headers=headers,
+        json={
+            "name": (
+                f"forbidden-{suffix}"
+            ),
+            "owner": "another-team",
+            "repository": (
+                "https://github.com/example/"
+                f"forbidden-{suffix}"
+            ),
+            "description": (
+                "Identity ownership test service"
+            ),
+            "template": "backend-service",
+            "environment": "development"
+        },
+        timeout=20.0
+    )
+
+    assert forbidden.status_code == 403
+
+    allowed = httpx.post(
+        (
+            f"{portal_api}"
+            "/portal/services/provision"
+        ),
+        headers=headers,
+        json={
+            "name": (
+                f"owned-{suffix}"
+            ),
+            "repository": (
+                "https://github.com/example/"
+                f"owned-{suffix}"
+            ),
+            "description": (
+                "Identity backed provisioning test"
+            ),
+            "template": "backend-service",
+            "environment": "development"
+        },
+        timeout=20.0
+    )
+
+    assert allowed.status_code == 200
+
+    assert allowed.json()[
+        "service"
+    ][
+        "owner"
+    ] == team
+
+
+def test_portal_me_rejects_invalid_token():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    response = httpx.get(
+        f"{portal_api}/portal/me",
+        headers={
+            "Authorization": (
+                "Bearer invalid-token"
+            )
+        },
+        timeout=10.0
+    )
+
+    assert response.status_code == 401

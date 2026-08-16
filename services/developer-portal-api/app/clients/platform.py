@@ -13,6 +13,11 @@ WORKFLOW_URL = os.getenv(
     "http://workflow-engine:8000"
 )
 
+IDENTITY_URL = os.getenv(
+    "IDENTITY_URL",
+    "http://identity-service:8000"
+)
+
 TEMPLATE_URL = os.getenv(
     "TEMPLATE_URL",
     "http://template-engine:8000"
@@ -100,6 +105,20 @@ async def post_json_with_headers(
         response = await client.post(
             url,
             json=payload,
+            headers=headers
+        )
+
+        return response
+
+async def get_json_with_headers(
+    url: str,
+    headers: dict
+):
+    async with httpx.AsyncClient(
+        timeout=10.0
+    ) as client:
+        response = await client.get(
+            url,
             headers=headers
         )
 

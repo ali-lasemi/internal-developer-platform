@@ -2,11 +2,13 @@ import asyncio
 
 from app.clients.platform import CATALOG_URL
 from app.clients.platform import EVENT_URL
+from app.clients.platform import IDENTITY_URL
 from app.clients.platform import PLATFORM_API_URL
 from app.clients.platform import POLICY_URL
 from app.clients.platform import TEMPLATE_URL
 from app.clients.platform import WORKFLOW_URL
 from app.clients.platform import get_json
+from app.clients.platform import get_json_with_headers
 from app.clients.platform import post_json
 from app.clients.platform import post_json_with_headers
 from app.clients.platform import service_status
@@ -743,3 +745,88 @@ async def promote_service(
         "quality_gate": gate,
         "transition": result
     }
+
+async def current_identity(
+    authorization: str
+):
+    response = await get_json_with_headers(
+        f"{IDENTITY_URL}/auth/me",
+        {
+            "Authorization": authorization
+        }
+    )
+
+    return {
+        "status_code": response.status_code,
+        "payload": response.json()
+    }
+
+
+async def authorized_provision_from_portal(
+    payload: dict,
+    authorization: str
+):
+    identity_result = await current_identity(
+        authorization
+    )
+
+    if identity_result[
+        "status_code"
+    ] >= 400:
+        return identity_result
+
+    identity = identity_result[
+        "payload"
+    ]
+
+    owner = identity.get(
+        "team"
+    ) or identity.get(
+        "username"
+    )
+
+    requested_owner = payload.get(
+        "owner"
+    )
+
+    role = identity.get(
+        "role"
+    )
+
+    privileged = role in {
+        "admin",
+        "platform-admin",
+        "operator"
+    }
+
+    if (
+        requested_owner
+        and requested_owner != owner
+        and not privileged
+    ):
+        return {
+            "status_code": 403,
+            "payload": {
+                "detail": (
+                    "Developers cannot provision "
+                    "services for another owner"
+                ),
+                "authenticated_owner": owner,
+                "requested_owner": requested_owner
+            }
+        }
+
+    effective_payload = {
+        **payload,
+        "owner": (
+            requested_owner
+            if privileged
+            and requested_owner
+            else owner
+        )
+    }
+
+    return await provision_from_portal(
+        effective_payload,
+        authorization
+    )

@@ -9,6 +9,8 @@ from app.services.aggregator import operational_overview
 from app.services.aggregator import owner_view
 from app.services.aggregator import platform_status
 from app.services.aggregator import provision_from_portal
+from app.services.aggregator import authorized_provision_from_portal
+from app.services.aggregator import current_identity
 from app.services.aggregator import promote_service
 from app.services.aggregator import recent_events
 from app.services.aggregator import service_detail

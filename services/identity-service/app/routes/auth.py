@@ -1,6 +1,7 @@
-﻿from fastapi import APIRouter
+from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+from fastapi import Header
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -12,6 +13,7 @@ from app.models.session import RefreshRequest
 from app.models.session import SessionTokenResponse
 from app.security.passwords import hash_password
 from app.security.passwords import verify_password
+from app.security.jwt import decode_access_token
 from app.sessions.service import create_session
 from app.sessions.service import refresh_session
 from app.sessions.service import revoke_session
@@ -191,3 +193,83 @@ def logout(
                 exc
             )
         ) from exc
+
+
+@router.get(
+    "/me"
+)
+def current_identity(
+    authorization: str | None = Header(
+        default=None
+    ),
+    database: Session = Depends(
+        get_db
+    )
+):
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header required"
+        )
+
+    if not authorization.startswith(
+        "Bearer "
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid authorization scheme"
+        )
+
+    token = authorization[
+        len("Bearer "):
+    ].strip()
+
+    try:
+        claims = decode_access_token(
+            token
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail=str(
+                exc
+            )
+        ) from exc
+
+    username = claims.get(
+        "sub"
+    )
+
+    user = (
+        database
+        .query(
+            UserRecord
+        )
+        .filter(
+            UserRecord.username
+            == username
+        )
+        .first()
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Identity not found"
+        )
+
+    if not user.active:
+        raise HTTPException(
+            status_code=403,
+            detail="User account is disabled"
+        )
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "team": user.team,
+        "role": user.role,
+        "active": user.active
+    }
