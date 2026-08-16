@@ -196,6 +196,7 @@ services:
       PLATFORM_API_URL: http://platform-api:8000
       CATALOG_URL: http://service-catalog:8000
       WORKFLOW_URL: http://workflow-engine:8000
+      IDENTITY_URL: http://identity-service:8000
       TEMPLATE_URL: http://template-engine:8000
       POLICY_URL: http://policy-engine:8000
       EVENT_URL: http://event-platform:8000
@@ -203,6 +204,8 @@ services:
       service-catalog:
         condition: service_healthy
       workflow-engine:
+        condition: service_healthy
+      identity-service:
         condition: service_healthy
       template-engine:
         condition: service_healthy

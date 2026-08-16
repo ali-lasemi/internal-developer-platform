@@ -2302,7 +2302,7 @@ def test_portal_operations_exposes_delivery_status():
 def test_portal_identity_backed_authorization():
     identity_api = os.getenv(
         "IDENTITY_API_URL",
-        "http://localhost:8007"
+        "http://localhost:8005"
     )
 
     portal_api = os.getenv(
