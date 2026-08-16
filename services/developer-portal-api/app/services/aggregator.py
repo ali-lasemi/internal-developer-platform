@@ -172,6 +172,14 @@ async def operational_overview():
         "platform": status,
         "catalog": catalog_metrics,
         "event_delivery": outbox,
+        "delivery_status": (
+            "degraded"
+            if outbox.get(
+                "dead_letter",
+                0
+            ) > 0
+            else "healthy"
+        ),
         "workflows": workflow_metrics,
         "recent_failures": recent_failures,
         "event_counts": event_counts,

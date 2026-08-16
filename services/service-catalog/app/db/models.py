@@ -156,3 +156,14 @@ class OutboxEventRecord(Base):
         DateTime(timezone=True),
         nullable=True
     )
+
+    next_attempt_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True
+    )
+
+    dead_lettered_at = Column(
+        DateTime(timezone=True),
+        nullable=True
+    )

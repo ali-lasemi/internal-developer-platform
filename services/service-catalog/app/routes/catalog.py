@@ -19,6 +19,7 @@ from app.services.outbox import create_outbox_event
 from app.services.outbox import dispatch_outbox_record
 from app.services.outbox import dispatch_pending_outbox
 from app.services.outbox import list_outbox
+from app.services.outbox import redrive_dead_letters
 
 
 router = APIRouter(
@@ -202,7 +203,9 @@ def read_outbox(
             "attempts": record.attempts,
             "last_error": record.last_error,
             "created_at": record.created_at,
-            "published_at": record.published_at
+            "published_at": record.published_at,
+            "next_attempt_at": record.next_attempt_at,
+            "dead_lettered_at": record.dead_lettered_at
         }
         for record in records
     ]
@@ -222,6 +225,20 @@ async def dispatch_outbox(
         limit
     )
 
+
+@router.post(
+    "/outbox/dead-letter/redrive"
+)
+def redrive_outbox_dead_letters(
+    limit: int = 100,
+    database: Session = Depends(
+        get_db
+    )
+):
+    return redrive_dead_letters(
+        database,
+        limit
+    )
 
 @router.get(
     "/outbox/metrics"
@@ -272,10 +289,46 @@ def outbox_metrics(
         or 0
     )
 
+    dead_letter = (
+        database
+        .query(
+            func.count(
+                OutboxEventRecord.id
+            )
+        )
+        .filter(
+            OutboxEventRecord.status
+            == "dead_letter"
+        )
+        .scalar()
+        or 0
+    )
+
+    retrying = (
+        database
+        .query(
+            func.count(
+                OutboxEventRecord.id
+            )
+        )
+        .filter(
+            OutboxEventRecord.status
+            == "pending"
+        )
+        .filter(
+            OutboxEventRecord.attempts
+            > 0
+        )
+        .scalar()
+        or 0
+    )
+
     return {
         "total": total,
         "pending": pending,
-        "published": published
+        "published": published,
+        "retrying": retrying,
+        "dead_letter": dead_letter
     }
 
 @router.get(

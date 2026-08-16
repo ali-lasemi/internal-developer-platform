@@ -2218,3 +2218,83 @@ def test_portal_operations_exposes_event_delivery():
     assert "published" in payload[
         "event_delivery"
     ]
+
+def test_outbox_retry_and_dead_letter_contract():
+    metrics = httpx.get(
+        (
+            f"{CATALOG_API}"
+            "/catalog/outbox/metrics"
+        ),
+        timeout=10.0
+    )
+
+    assert metrics.status_code == 200
+
+    payload = metrics.json()
+
+    assert "pending" in payload
+    assert "published" in payload
+    assert "retrying" in payload
+    assert "dead_letter" in payload
+
+    assert (
+        payload["pending"]
+        + payload["published"]
+        + payload["dead_letter"]
+        == payload["total"]
+    )
+
+    redrive = httpx.post(
+        (
+            f"{CATALOG_API}"
+            "/catalog/outbox/"
+            "dead-letter/redrive"
+        ),
+        params={
+            "limit": 10
+        },
+        timeout=10.0
+    )
+
+    assert redrive.status_code == 200
+
+    assert (
+        redrive.json()[
+            "redriven"
+        ]
+        >= 0
+    )
+
+
+def test_portal_operations_exposes_delivery_status():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    response = httpx.get(
+        (
+            f"{portal_api}"
+            "/portal/operations"
+        ),
+        timeout=20.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert payload[
+        "delivery_status"
+    ] in {
+        "healthy",
+        "degraded"
+    }
+
+    assert "retrying" in payload[
+        "event_delivery"
+    ]
+
+    assert "dead_letter" in payload[
+        "event_delivery"
+    ]
