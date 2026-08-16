@@ -11,6 +11,8 @@ from app.services.aggregator import platform_status
 from app.services.aggregator import provision_from_portal
 from app.services.aggregator import recent_events
 from app.services.aggregator import service_detail
+from app.services.aggregator import service_scorecard
+from app.services.aggregator import platform_scorecards
 from app.services.aggregator import templates
 from app.services.aggregator import scaffold_preview
 from app.services.aggregator import template_preview
@@ -202,3 +204,29 @@ async def provision_service(
         )
 
     return response_payload
+
+@router.get(
+    "/services/{service_id}/scorecard"
+)
+async def scorecard(
+    service_id: int
+):
+    try:
+        return await service_scorecard(
+            service_id
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(
+                exc
+            )
+        ) from exc
+
+
+@router.get(
+    "/scorecards"
+)
+async def scorecards():
+    return await platform_scorecards()

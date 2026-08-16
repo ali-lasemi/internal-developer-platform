@@ -359,3 +359,185 @@ async def provision_from_portal(
         "status_code": response.status_code,
         "payload": response.json()
     }
+
+def _score_component(
+    condition: bool,
+    points: int
+):
+    return points if condition else 0
+
+
+async def service_scorecard(
+    service_id: int
+):
+    service = await service_detail(
+        service_id
+    )
+
+    workflows = await workflow_executions()
+
+    service_name = service.get(
+        "name"
+    )
+
+    repository = service.get(
+        "repository"
+    )
+
+    owner = service.get(
+        "owner"
+    )
+
+    lifecycle = service.get(
+        "lifecycle"
+    )
+
+    description = service.get(
+        "description"
+    )
+
+    lifecycle_history = service.get(
+        "lifecycle_history",
+        []
+    )
+
+    related_workflows = [
+        execution
+        for execution in workflows
+        if execution.get(
+            "workflow"
+        ) == "service-creation"
+    ]
+
+    failed_workflows = [
+        execution
+        for execution in related_workflows
+        if execution.get(
+            "status"
+        ) == "failed"
+    ]
+
+    checks = {
+        "ownership": {
+            "passed": bool(
+                owner
+            ),
+            "weight": 20
+        },
+        "repository": {
+            "passed": bool(
+                repository
+            ),
+            "weight": 20
+        },
+        "documentation": {
+            "passed": bool(
+                description
+            ),
+            "weight": 15
+        },
+        "managed_lifecycle": {
+            "passed": lifecycle in {
+                "created",
+                "development",
+                "production",
+                "deprecated",
+                "retired"
+            },
+            "weight": 15
+        },
+        "lifecycle_history": {
+            "passed": len(
+                lifecycle_history
+            ) > 0,
+            "weight": 10
+        },
+        "workflow_health": {
+            "passed": len(
+                failed_workflows
+            ) == 0,
+            "weight": 20
+        }
+    }
+
+    score = sum(
+        _score_component(
+            check[
+                "passed"
+            ],
+            check[
+                "weight"
+            ]
+        )
+        for check in checks.values()
+    )
+
+    if score >= 90:
+        grade = "A"
+    elif score >= 75:
+        grade = "B"
+    elif score >= 60:
+        grade = "C"
+    else:
+        grade = "D"
+
+    return {
+        "service_id": service_id,
+        "service": service_name,
+        "owner": owner,
+        "score": score,
+        "grade": grade,
+        "checks": checks
+    }
+
+
+async def platform_scorecards():
+    services = await catalog_services()
+
+    results = []
+
+    for service in services[:100]:
+        results.append(
+            await service_scorecard(
+                service[
+                    "id"
+                ]
+            )
+        )
+
+    if results:
+        average_score = round(
+            sum(
+                item["score"]
+                for item in results
+            )
+            / len(
+                results
+            ),
+            2
+        )
+    else:
+        average_score = 100.0
+
+    grades = {}
+
+    for result in results:
+        grade = result[
+            "grade"
+        ]
+
+        grades[
+            grade
+        ] = grades.get(
+            grade,
+            0
+        ) + 1
+
+    return {
+        "total_services": len(
+            results
+        ),
+        "average_score": average_score,
+        "grades": grades,
+        "services": results
+    }

@@ -1527,3 +1527,139 @@ def test_portal_self_service_provisioning():
     }
 
     assert service_name in names
+
+def test_service_scorecard_and_platform_quality_view():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = (
+        f"scorecard-{suffix}"
+    )
+
+    create = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Platform scorecard integration test"
+            ),
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create.status_code == 201
+
+    service_id = create.json()[
+        "id"
+    ]
+
+    scorecard = httpx.get(
+        (
+            f"{portal_api}"
+            f"/portal/services/"
+            f"{service_id}/scorecard"
+        ),
+        timeout=10.0
+    )
+
+    assert scorecard.status_code == 200
+
+    payload = scorecard.json()
+
+    assert payload["service"] == service_name
+    assert payload["owner"] == "platform-team"
+    assert payload["score"] >= 0
+    assert payload["score"] <= 100
+    assert payload["grade"] in {
+        "A",
+        "B",
+        "C",
+        "D"
+    }
+
+    assert payload[
+        "checks"
+    ][
+        "ownership"
+    ][
+        "passed"
+    ] is True
+
+    assert payload[
+        "checks"
+    ][
+        "repository"
+    ][
+        "passed"
+    ] is True
+
+    platform_scorecards = httpx.get(
+        (
+            f"{portal_api}"
+            "/portal/scorecards"
+        ),
+        timeout=10.0
+    )
+
+    assert (
+        platform_scorecards.status_code
+        == 200
+    )
+
+    quality = platform_scorecards.json()
+
+    assert quality[
+        "total_services"
+    ] >= 1
+
+    assert (
+        quality["average_score"]
+        >= 0
+    )
+
+    assert (
+        quality["average_score"]
+        <= 100
+    )
+
+
+def test_platform_summary_exposes_quality_model():
+    response = httpx.get(
+        (
+            f"{PLATFORM_API}"
+            "/api/v1/platform/summary"
+        ),
+        timeout=10.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert (
+        payload[
+            "quality_model"
+        ][
+            "name"
+        ]
+        == "platform-service-scorecard"
+    )
+
+    assert (
+        payload[
+            "quality_model"
+        ][
+            "version"
+        ]
+        == "v1"
+    )
