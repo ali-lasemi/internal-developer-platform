@@ -541,3 +541,120 @@ async def platform_scorecards():
         "grades": grades,
         "services": results
     }
+
+async def service_quality_gate(
+    service_id: int,
+    minimum_score: int = 75
+):
+    minimum_score = min(
+        max(
+            minimum_score,
+            0
+        ),
+        100
+    )
+
+    scorecard = await service_scorecard(
+        service_id
+    )
+
+    failed_checks = [
+        name
+        for name, check
+        in scorecard[
+            "checks"
+        ].items()
+        if not check[
+            "passed"
+        ]
+    ]
+
+    passed = (
+        scorecard[
+            "score"
+        ]
+        >= minimum_score
+    )
+
+    return {
+        "service_id": service_id,
+        "service": scorecard[
+            "service"
+        ],
+        "score": scorecard[
+            "score"
+        ],
+        "grade": scorecard[
+            "grade"
+        ],
+        "minimum_score": minimum_score,
+        "passed": passed,
+        "decision": (
+            "allowed"
+            if passed
+            else "blocked"
+        ),
+        "failed_checks": failed_checks
+    }
+
+
+async def platform_quality_report(
+    minimum_score: int = 75
+):
+    minimum_score = min(
+        max(
+            minimum_score,
+            0
+        ),
+        100
+    )
+
+    scorecards = await platform_scorecards()
+
+    gates = []
+
+    for service in scorecards[
+        "services"
+    ]:
+        gates.append(
+            await service_quality_gate(
+                service[
+                    "service_id"
+                ],
+                minimum_score
+            )
+        )
+
+    passing = sum(
+        1
+        for gate in gates
+        if gate[
+            "passed"
+        ]
+    )
+
+    blocked = len(
+        gates
+    ) - passing
+
+    compliance_rate = (
+        round(
+            passing / len(
+                gates
+            ),
+            4
+        )
+        if gates
+        else 1.0
+    )
+
+    return {
+        "minimum_score": minimum_score,
+        "total_services": len(
+            gates
+        ),
+        "passing_services": passing,
+        "blocked_services": blocked,
+        "compliance_rate": compliance_rate,
+        "gates": gates
+    }

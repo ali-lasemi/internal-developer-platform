@@ -12,7 +12,9 @@ from app.services.aggregator import provision_from_portal
 from app.services.aggregator import recent_events
 from app.services.aggregator import service_detail
 from app.services.aggregator import service_scorecard
+from app.services.aggregator import service_quality_gate
 from app.services.aggregator import platform_scorecards
+from app.services.aggregator import platform_quality_report
 from app.services.aggregator import templates
 from app.services.aggregator import scaffold_preview
 from app.services.aggregator import template_preview
@@ -230,3 +232,35 @@ async def scorecard(
 )
 async def scorecards():
     return await platform_scorecards()
+
+@router.get(
+    "/services/{service_id}/quality-gate"
+)
+async def quality_gate(
+    service_id: int,
+    minimum_score: int = 75
+):
+    try:
+        return await service_quality_gate(
+            service_id,
+            minimum_score
+        )
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(
+                exc
+            )
+        ) from exc
+
+
+@router.get(
+    "/quality-report"
+)
+async def quality_report(
+    minimum_score: int = 75
+):
+    return await platform_quality_report(
+        minimum_score
+    )

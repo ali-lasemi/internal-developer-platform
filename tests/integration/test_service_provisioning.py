@@ -1663,3 +1663,195 @@ def test_platform_summary_exposes_quality_model():
         ]
         == "v1"
     )
+
+def test_service_quality_gate_and_platform_compliance_report():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = (
+        f"quality-gate-{suffix}"
+    )
+
+    create = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Quality gate integration test"
+            ),
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create.status_code == 201
+
+    service_id = create.json()[
+        "id"
+    ]
+
+    gate = httpx.get(
+        (
+            f"{portal_api}"
+            f"/portal/services/"
+            f"{service_id}/quality-gate"
+        ),
+        params={
+            "minimum_score": 50
+        },
+        timeout=10.0
+    )
+
+    assert gate.status_code == 200
+
+    payload = gate.json()
+
+    assert payload[
+        "service_id"
+    ] == service_id
+
+    assert payload[
+        "minimum_score"
+    ] == 50
+
+    assert payload[
+        "decision"
+    ] in {
+        "allowed",
+        "blocked"
+    }
+
+    assert isinstance(
+        payload[
+            "failed_checks"
+        ],
+        list
+    )
+
+    strict_gate = httpx.get(
+        (
+            f"{portal_api}"
+            f"/portal/services/"
+            f"{service_id}/quality-gate"
+        ),
+        params={
+            "minimum_score": 100
+        },
+        timeout=10.0
+    )
+
+    assert strict_gate.status_code == 200
+
+    strict_payload = (
+        strict_gate.json()
+    )
+
+    assert (
+        strict_payload[
+            "minimum_score"
+        ]
+        == 100
+    )
+
+    report = httpx.get(
+        (
+            f"{portal_api}"
+            "/portal/quality-report"
+        ),
+        params={
+            "minimum_score": 75
+        },
+        timeout=20.0
+    )
+
+    assert report.status_code == 200
+
+    report_payload = (
+        report.json()
+    )
+
+    assert (
+        report_payload[
+            "total_services"
+        ]
+        >= 1
+    )
+
+    assert (
+        report_payload[
+            "passing_services"
+        ]
+        + report_payload[
+            "blocked_services"
+        ]
+        == report_payload[
+            "total_services"
+        ]
+    )
+
+    assert (
+        report_payload[
+            "compliance_rate"
+        ]
+        >= 0
+    )
+
+    assert (
+        report_payload[
+            "compliance_rate"
+        ]
+        <= 1
+    )
+
+
+def test_quality_gate_threshold_is_bounded():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    services = httpx.get(
+        f"{CATALOG_API}/catalog",
+        timeout=10.0
+    )
+
+    assert services.status_code == 200
+    assert len(
+        services.json()
+    ) >= 1
+
+    service_id = services.json()[
+        0
+    ][
+        "id"
+    ]
+
+    response = httpx.get(
+        (
+            f"{portal_api}"
+            f"/portal/services/"
+            f"{service_id}/quality-gate"
+        ),
+        params={
+            "minimum_score": 999
+        },
+        timeout=10.0
+    )
+
+    assert response.status_code == 200
+
+    assert (
+        response.json()[
+            "minimum_score"
+        ]
+        == 100
+    )
