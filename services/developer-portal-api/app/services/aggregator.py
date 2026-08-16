@@ -124,7 +124,8 @@ async def operational_overview():
         catalog_metrics,
         workflow_metrics,
         workflow_history,
-        events
+        events,
+        outbox
     ) = await asyncio.gather(
         platform_status(),
         get_json(
@@ -137,7 +138,10 @@ async def operational_overview():
             )
         ),
         workflow_executions(),
-        recent_events()
+        recent_events(),
+        get_json(
+            f"{CATALOG_URL}/catalog/outbox/metrics"
+        )
     )
 
     recent_failures = [
@@ -167,6 +171,7 @@ async def operational_overview():
     return {
         "platform": status,
         "catalog": catalog_metrics,
+        "event_delivery": outbox,
         "workflows": workflow_metrics,
         "recent_failures": recent_failures,
         "event_counts": event_counts,
