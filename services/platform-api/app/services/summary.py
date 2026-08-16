@@ -60,6 +60,10 @@ async def platform_summary():
     )
 
     return {
+        "quality_model": {
+            "name": "platform-service-scorecard",
+            "version": "v1"
+        },
         "services": catalog,
         "workflows": workflows,
         "templates": {
