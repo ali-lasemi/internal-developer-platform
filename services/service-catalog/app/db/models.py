@@ -5,6 +5,8 @@ from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
+from sqlalchemy import JSON
+from sqlalchemy import Text
 from sqlalchemy import String
 
 from app.db.database import Base
@@ -84,4 +86,73 @@ class ServiceLifecycleHistoryRecord(Base):
         default=lambda: datetime.now(
             timezone.utc
         )
+    )
+
+class OutboxEventRecord(Base):
+    __tablename__ = "service_catalog_outbox"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    event_id = Column(
+        String(64),
+        nullable=False,
+        unique=True,
+        index=True
+    )
+
+    event_type = Column(
+        String(150),
+        nullable=False,
+        index=True
+    )
+
+    source = Column(
+        String(150),
+        nullable=False
+    )
+
+    subject = Column(
+        String(255),
+        nullable=False,
+        index=True
+    )
+
+    payload = Column(
+        JSON,
+        nullable=False
+    )
+
+    status = Column(
+        String(30),
+        nullable=False,
+        default="pending",
+        index=True
+    )
+
+    attempts = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    last_error = Column(
+        Text,
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        )
+    )
+
+    published_at = Column(
+        DateTime(timezone=True),
+        nullable=True
     )

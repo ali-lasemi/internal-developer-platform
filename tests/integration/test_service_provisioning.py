@@ -2062,3 +2062,159 @@ def test_quality_gate_can_block_promotion():
     ][
         "decision"
     ] == "blocked"
+
+def test_service_catalog_transactional_outbox():
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = (
+        f"outbox-{suffix}"
+    )
+
+    create = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "Transactional outbox integration test"
+            ),
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create.status_code == 201
+
+    service_id = create.json()[
+        "id"
+    ]
+
+    transition = httpx.post(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/lifecycle"
+        ),
+        json={
+            "lifecycle": "development"
+        },
+        timeout=10.0
+    )
+
+    assert transition.status_code == 200
+
+    outbox = httpx.get(
+        f"{CATALOG_API}/catalog/outbox",
+        params={
+            "limit": 100
+        },
+        timeout=10.0
+    )
+
+    assert outbox.status_code == 200
+
+    records = [
+        record
+        for record in outbox.json()
+        if record[
+            "subject"
+        ] == service_name
+    ]
+
+    assert len(
+        records
+    ) >= 1
+
+    record = records[
+        0
+    ]
+
+    assert (
+        record["event_type"]
+        == "service.lifecycle.changed"
+    )
+
+    assert record[
+        "attempts"
+    ] >= 1
+
+    assert record[
+        "status"
+    ] in {
+        "pending",
+        "published"
+    }
+
+    dispatch = httpx.post(
+        (
+            f"{CATALOG_API}"
+            "/catalog/outbox/dispatch"
+        ),
+        timeout=20.0
+    )
+
+    assert dispatch.status_code == 200
+
+    metrics = httpx.get(
+        (
+            f"{CATALOG_API}"
+            "/catalog/outbox/metrics"
+        ),
+        timeout=10.0
+    )
+
+    assert metrics.status_code == 200
+
+    payload = metrics.json()
+
+    assert payload[
+        "total"
+    ] >= 1
+
+    assert (
+        payload[
+            "pending"
+        ]
+        + payload[
+            "published"
+        ]
+        == payload[
+            "total"
+        ]
+    )
+
+
+def test_portal_operations_exposes_event_delivery():
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    response = httpx.get(
+        (
+            f"{portal_api}"
+            "/portal/operations"
+        ),
+        timeout=20.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert "event_delivery" in payload
+
+    assert "total" in payload[
+        "event_delivery"
+    ]
+
+    assert "pending" in payload[
+        "event_delivery"
+    ]
+
+    assert "published" in payload[
+        "event_delivery"
+    ]

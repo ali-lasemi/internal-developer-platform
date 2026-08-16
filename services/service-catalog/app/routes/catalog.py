@@ -5,6 +5,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.db.models import OutboxEventRecord
 from app.db.models import ServiceLifecycleHistoryRecord
 from app.db.models import ServiceRecord
 from app.events.lifecycle_events import publish_lifecycle_changed_event
@@ -14,6 +15,10 @@ from app.models.history import LifecycleHistoryEntry
 from app.models.lifecycle import LifecycleTransitionRequest
 from app.models.lifecycle import LifecycleTransitionResponse
 from app.services.lifecycle import validate_transition
+from app.services.outbox import create_outbox_event
+from app.services.outbox import dispatch_outbox_record
+from app.services.outbox import dispatch_pending_outbox
+from app.services.outbox import list_outbox
 
 
 router = APIRouter(
@@ -167,6 +172,110 @@ def owner_summary(
         ),
         "lifecycle": lifecycle,
         "services": services
+    }
+
+@router.get(
+    "/outbox"
+)
+def read_outbox(
+    status: str | None = None,
+    limit: int = 100,
+    database: Session = Depends(
+        get_db
+    )
+):
+    records = list_outbox(
+        database,
+        status,
+        limit
+    )
+
+    return [
+        {
+            "id": record.id,
+            "event_id": record.event_id,
+            "event_type": record.event_type,
+            "source": record.source,
+            "subject": record.subject,
+            "payload": record.payload,
+            "status": record.status,
+            "attempts": record.attempts,
+            "last_error": record.last_error,
+            "created_at": record.created_at,
+            "published_at": record.published_at
+        }
+        for record in records
+    ]
+
+
+@router.post(
+    "/outbox/dispatch"
+)
+async def dispatch_outbox(
+    limit: int = 100,
+    database: Session = Depends(
+        get_db
+    )
+):
+    return await dispatch_pending_outbox(
+        database,
+        limit
+    )
+
+
+@router.get(
+    "/outbox/metrics"
+)
+def outbox_metrics(
+    database: Session = Depends(
+        get_db
+    )
+):
+    total = (
+        database
+        .query(
+            func.count(
+                OutboxEventRecord.id
+            )
+        )
+        .scalar()
+        or 0
+    )
+
+    pending = (
+        database
+        .query(
+            func.count(
+                OutboxEventRecord.id
+            )
+        )
+        .filter(
+            OutboxEventRecord.status
+            == "pending"
+        )
+        .scalar()
+        or 0
+    )
+
+    published = (
+        database
+        .query(
+            func.count(
+                OutboxEventRecord.id
+            )
+        )
+        .filter(
+            OutboxEventRecord.status
+            == "published"
+        )
+        .scalar()
+        or 0
+    )
+
+    return {
+        "total": total,
+        "pending": pending,
+        "published": published
     }
 
 @router.get(
@@ -335,24 +444,31 @@ async def transition_lifecycle(
         history
     )
 
+    outbox_event = create_outbox_event(
+        database=database,
+        event_type="service.lifecycle.changed",
+        subject=service.name,
+        payload={
+            "owner": service.owner,
+            "previous_lifecycle": previous,
+            "lifecycle": service.lifecycle
+        }
+    )
+
     database.commit()
+
     database.refresh(
         service
     )
 
-    try:
-        await publish_lifecycle_changed_event(
-            service_name=service.name,
-            owner=service.owner,
-            previous_lifecycle=previous,
-            lifecycle=service.lifecycle
-        )
+    database.refresh(
+        outbox_event
+    )
 
-    except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Lifecycle event publishing failed: {exc}"
-        ) from exc
+    await dispatch_outbox_record(
+        database,
+        outbox_event
+    )
 
     return LifecycleTransitionResponse(
         id=service.id,
