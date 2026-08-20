@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.db.models import WorkflowExecutionRecord
 from app.models.execution import WorkflowExecution
+from app.models.execution import WorkflowExecutionRequest
 from app.models.workflow import Workflow
 from app.services.execution import execute_workflow
 from app.services.execution import get_execution
@@ -45,15 +46,24 @@ def register_workflow(
 )
 def start_workflow(
     name: str,
+    request: WorkflowExecutionRequest | None = None,
     fail_step: str | None = None,
     database: Session = Depends(
         get_db
     )
 ):
+    context = (
+        request
+        or WorkflowExecutionRequest()
+    )
+
     return execute_workflow(
         database=database,
         workflow_name=name,
-        fail_step=fail_step
+        fail_step=fail_step,
+        service_id=context.service_id,
+        service_name=context.service_name,
+        owner=context.owner
     )
 
 
@@ -64,6 +74,9 @@ def start_workflow(
 def read_executions(
     status: str | None = None,
     workflow: str | None = None,
+    service_id: int | None = None,
+    service_name: str | None = None,
+    owner: str | None = None,
     limit: int = 100,
     database: Session = Depends(
         get_db
@@ -83,6 +96,24 @@ def read_executions(
         query = query.filter(
             WorkflowExecutionRecord.workflow
             == workflow
+        )
+
+    if service_id is not None:
+        query = query.filter(
+            WorkflowExecutionRecord.service_id
+            == service_id
+        )
+
+    if service_name:
+        query = query.filter(
+            WorkflowExecutionRecord.service_name
+            == service_name
+        )
+
+    if owner:
+        query = query.filter(
+            WorkflowExecutionRecord.owner
+            == owner
         )
 
     safe_limit = min(

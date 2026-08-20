@@ -2824,3 +2824,376 @@ def test_slo_platform_metrics():
     assert "healthy_slos" in payload
     assert "warning_slos" in payload
     assert "exhausted_slos" in payload
+
+
+def test_workflow_execution_service_correlation():
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    service_id = 900000
+    service_name = (
+        f"correlation-{suffix}"
+    )
+    owner = (
+        f"owner-{suffix}"
+    )
+
+    execute = httpx.post(
+        (
+            f"{workflow_api}"
+            "/workflows/"
+            "service-creation/execute"
+        ),
+        json={
+            "service_id": service_id,
+            "service_name": service_name,
+            "owner": owner
+        },
+        timeout=10.0
+    )
+
+    assert execute.status_code == 200
+
+    execution = execute.json()
+
+    assert execution[
+        "service_id"
+    ] == service_id
+
+    assert execution[
+        "service_name"
+    ] == service_name
+
+    assert execution[
+        "owner"
+    ] == owner
+
+    execution_id = execution[
+        "execution_id"
+    ]
+
+    fetched = httpx.get(
+        (
+            f"{workflow_api}"
+            "/workflows/executions/"
+            f"{execution_id}"
+        ),
+        timeout=10.0
+    )
+
+    assert fetched.status_code == 200
+
+    fetched_payload = fetched.json()
+
+    assert fetched_payload[
+        "service_id"
+    ] == service_id
+
+    assert fetched_payload[
+        "service_name"
+    ] == service_name
+
+    assert fetched_payload[
+        "owner"
+    ] == owner
+
+    by_service = httpx.get(
+        (
+            f"{workflow_api}"
+            "/workflows/executions"
+        ),
+        params={
+            "service_id": service_id
+        },
+        timeout=10.0
+    )
+
+    assert by_service.status_code == 200
+
+    service_executions = (
+        by_service.json()
+    )
+
+    assert len(
+        service_executions
+    ) >= 1
+
+    assert all(
+        item[
+            "service_id"
+        ] == service_id
+        for item in service_executions
+    )
+
+    by_owner = httpx.get(
+        (
+            f"{workflow_api}"
+            "/workflows/executions"
+        ),
+        params={
+            "owner": owner
+        },
+        timeout=10.0
+    )
+
+    assert by_owner.status_code == 200
+
+    owner_executions = (
+        by_owner.json()
+    )
+
+    assert len(
+        owner_executions
+    ) >= 1
+
+    assert all(
+        item[
+            "owner"
+        ] == owner
+        for item in owner_executions
+    )
+
+
+def test_workflow_retry_preserves_service_context():
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    service_id = 900001
+    service_name = (
+        f"retry-context-{suffix}"
+    )
+    owner = (
+        f"retry-owner-{suffix}"
+    )
+
+    failed = httpx.post(
+        (
+            f"{workflow_api}"
+            "/workflows/"
+            "service-creation/execute"
+        ),
+        params={
+            "fail_step": (
+                "prepare-service"
+            )
+        },
+        json={
+            "service_id": service_id,
+            "service_name": service_name,
+            "owner": owner
+        },
+        timeout=10.0
+    )
+
+    assert failed.status_code == 200
+
+    failed_payload = failed.json()
+
+    assert failed_payload[
+        "status"
+    ] == "failed"
+
+    retry = httpx.post(
+        (
+            f"{workflow_api}"
+            "/workflows/executions/"
+            f"{failed_payload['execution_id']}"
+            "/retry"
+        ),
+        timeout=10.0
+    )
+
+    assert retry.status_code == 200
+
+    retry_payload = retry.json()
+
+    assert retry_payload[
+        "service_id"
+    ] == service_id
+
+    assert retry_payload[
+        "service_name"
+    ] == service_name
+
+    assert retry_payload[
+        "owner"
+    ] == owner
+
+    assert retry_payload[
+        "parent_execution_id"
+    ] == failed_payload[
+        "execution_id"
+    ]
+
+    assert retry_payload[
+        "attempt"
+    ] == (
+        failed_payload[
+            "attempt"
+        ]
+        + 1
+    )
+
+
+def test_workflow_failure_isolated_between_services():
+    workflow_api = os.getenv(
+        "WORKFLOW_API_URL",
+        "http://localhost:8003"
+    )
+
+    portal_api = os.getenv(
+        "PORTAL_API_URL",
+        "http://localhost:8004"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+
+    service_a = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": (
+                f"isolation-a-{suffix}"
+            ),
+            "owner": "isolation-a",
+            "repository": (
+                "https://github.com/example/"
+                f"isolation-a-{suffix}"
+            ),
+            "description": (
+                "Workflow isolation A"
+            ),
+            "lifecycle": "development"
+        },
+        timeout=10.0
+    )
+
+    service_b = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": (
+                f"isolation-b-{suffix}"
+            ),
+            "owner": "isolation-b",
+            "repository": (
+                "https://github.com/example/"
+                f"isolation-b-{suffix}"
+            ),
+            "description": (
+                "Workflow isolation B"
+            ),
+            "lifecycle": "development"
+        },
+        timeout=10.0
+    )
+
+    assert service_a.status_code == 201
+    assert service_b.status_code == 201
+
+    a = service_a.json()
+    b = service_b.json()
+
+    failed = httpx.post(
+        (
+            f"{workflow_api}"
+            "/workflows/"
+            "service-creation/execute"
+        ),
+        params={
+            "fail_step": (
+                "prepare-service"
+            )
+        },
+        json={
+            "service_id": a[
+                "id"
+            ],
+            "service_name": a[
+                "name"
+            ],
+            "owner": a[
+                "owner"
+            ]
+        },
+        timeout=10.0
+    )
+
+    assert failed.status_code == 200
+    assert failed.json()[
+        "status"
+    ] == "failed"
+
+    healthy = httpx.post(
+        (
+            f"{workflow_api}"
+            "/workflows/"
+            "service-creation/execute"
+        ),
+        json={
+            "service_id": b[
+                "id"
+            ],
+            "service_name": b[
+                "name"
+            ],
+            "owner": b[
+                "owner"
+            ]
+        },
+        timeout=10.0
+    )
+
+    assert healthy.status_code == 200
+    assert healthy.json()[
+        "status"
+    ] == "completed"
+
+    scorecard_a = httpx.get(
+        (
+            f"{portal_api}"
+            "/portal/services/"
+            f"{a['id']}/scorecard"
+        ),
+        timeout=10.0
+    )
+
+    scorecard_b = httpx.get(
+        (
+            f"{portal_api}"
+            "/portal/services/"
+            f"{b['id']}/scorecard"
+        ),
+        timeout=10.0
+    )
+
+    assert scorecard_a.status_code == 200
+    assert scorecard_b.status_code == 200
+
+    assert (
+        scorecard_a.json()[
+            "checks"
+        ][
+            "workflow_health"
+        ][
+            "passed"
+        ]
+        is False
+    )
+
+    assert (
+        scorecard_b.json()[
+            "checks"
+        ][
+            "workflow_health"
+        ][
+            "passed"
+        ]
+        is True
+    )

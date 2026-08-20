@@ -89,9 +89,49 @@ async def service_detail(
     }
 
 
-async def workflow_executions():
+async def workflow_executions(
+    service_id: int | None = None,
+    service_name: str | None = None,
+    owner: str | None = None,
+    status: str | None = None
+):
+    params = []
+
+    if service_id is not None:
+        params.append(
+            f"service_id={service_id}"
+        )
+
+    if service_name:
+        params.append(
+            f"service_name={service_name}"
+        )
+
+    if owner:
+        params.append(
+            f"owner={owner}"
+        )
+
+    if status:
+        params.append(
+            f"status={status}"
+        )
+
+    query = (
+        "?"
+        + "&".join(
+            params
+        )
+        if params
+        else ""
+    )
+
     return await get_json(
-        f"{WORKFLOW_URL}/workflows/executions"
+        (
+            f"{WORKFLOW_URL}"
+            "/workflows/executions"
+            f"{query}"
+        )
     )
 
 
@@ -259,7 +299,9 @@ async def owner_view(
         )
     )
 
-    workflows = await workflow_executions()
+    workflows = await workflow_executions(
+        owner=owner
+    )
 
     events = await recent_events()
 
@@ -389,7 +431,9 @@ async def service_scorecard(
         service_id
     )
 
-    workflows = await workflow_executions()
+    workflows = await workflow_executions(
+        service_id=service_id
+    )
 
     service_name = service.get(
         "name"
@@ -419,9 +463,14 @@ async def service_scorecard(
     related_workflows = [
         execution
         for execution in workflows
-        if execution.get(
-            "workflow"
-        ) == "service-creation"
+        if (
+            execution.get(
+                "workflow"
+            ) == "service-creation"
+            and execution.get(
+                "service_id"
+            ) == service_id
+        )
     ]
 
     failed_workflows = [
@@ -455,6 +504,7 @@ async def service_scorecard(
             "passed": lifecycle in {
                 "created",
                 "development",
+                "staging",
                 "production",
                 "deprecated",
                 "retired"

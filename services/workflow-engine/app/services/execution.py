@@ -34,6 +34,9 @@ def _to_model(
         status=record.status,
         attempt=record.attempt,
         parent_execution_id=record.parent_execution_id,
+        service_id=record.service_id,
+        service_name=record.service_name,
+        owner=record.owner,
         steps=[
             WorkflowStep(
                 name=step["name"],
@@ -87,6 +90,9 @@ def _publish_safe(
                 "parent_execution_id": (
                     record.parent_execution_id
                 ),
+                "service_id": record.service_id,
+                "service_name": record.service_name,
+                "owner": record.owner,
                 **data
             }
         )
@@ -99,7 +105,10 @@ def execute_workflow(
     workflow_name: str,
     fail_step: str | None = None,
     attempt: int = 1,
-    parent_execution_id: str | None = None
+    parent_execution_id: str | None = None,
+    service_id: int | None = None,
+    service_name: str | None = None,
+    owner: str | None = None
 ) -> WorkflowExecution:
     execution_id = uuid4().hex
 
@@ -127,6 +136,9 @@ def execute_workflow(
         status="pending",
         attempt=attempt,
         parent_execution_id=parent_execution_id,
+        service_id=service_id,
+        service_name=service_name,
+        owner=owner,
         steps=steps,
         started_at=_utcnow(),
         completed_at=None,
@@ -331,7 +343,10 @@ def retry_execution(
         workflow_name=original.workflow,
         fail_step=None,
         attempt=original.attempt + 1,
-        parent_execution_id=original.execution_id
+        parent_execution_id=original.execution_id,
+        service_id=original.service_id,
+        service_name=original.service_name,
+        owner=original.owner
     )
 
 

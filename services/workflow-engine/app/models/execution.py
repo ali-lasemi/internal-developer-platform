@@ -25,3 +25,9 @@ class WorkflowExecution(BaseModel):
     completed_at: datetime | None = None
     failed_at: datetime | None = None
     error: str | None = None
+
+
+class WorkflowExecutionRequest(BaseModel):
+    service_id: int | None = None
+    service_name: str | None = None
+    owner: str | None = None

@@ -162,6 +162,10 @@ async def provision_service(
 
         catalog_response.raise_for_status()
 
+        catalog_result = (
+            catalog_response.json()
+        )
+
         await publish_service_created_event(
             service_name=request.name,
             owner=request.owner,
@@ -173,7 +177,14 @@ async def provision_service(
             (
                 f"{WORKFLOW_ENGINE_URL}"
                 "/workflows/service-creation/execute"
-            )
+            ),
+            json={
+                "service_id": catalog_result[
+                    "id"
+                ],
+                "service_name": request.name,
+                "owner": request.owner
+            }
         )
 
         workflow_response.raise_for_status()
