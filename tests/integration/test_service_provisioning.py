@@ -1472,8 +1472,7 @@ def test_portal_self_service_provisioning():
         },
         json={
             "name": service_name,
-            "owner": "platform-team",
-            "repository": (
+                        "repository": (
                 "https://github.com/example/"
                 f"{service_name}"
             ),
@@ -1513,7 +1512,7 @@ def test_portal_self_service_provisioning():
     catalog_response = httpx.get(
         f"{CATALOG_API}/catalog",
         params={
-            "owner": "platform-team"
+            "owner": "payments-team"
         },
         timeout=10.0
     )
@@ -2425,9 +2424,36 @@ def test_portal_identity_backed_authorization():
 
     assert allowed.status_code == 200
 
-    assert allowed.json()[
+    allowed_payload = allowed.json()
+
+    owned_service_name = (
+        f"owned-{suffix}"
+    )
+
+    assert allowed_payload[
         "service"
-    ][
+    ] == owned_service_name
+
+    catalog_response = httpx.get(
+        f"{CATALOG_API}/catalog",
+        params={
+            "owner": team
+        },
+        timeout=10.0
+    )
+
+    assert catalog_response.status_code == 200
+
+    owned_service = next(
+        service
+        for service
+        in catalog_response.json()
+        if service[
+            "name"
+        ] == owned_service_name
+    )
+
+    assert owned_service[
         "owner"
     ] == team
 
