@@ -262,6 +262,33 @@ services:
     networks:
       - idp-network
 
+
+  developer-portal:
+    build:
+      context: ./developer-portal/frontend
+    container_name: idp-developer-portal
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      developer-portal-api:
+        condition: service_healthy
+      identity-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - -
+        - http://localhost/healthz
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - idp-network
+
 networks:
   idp-network:
     name: idp-network
