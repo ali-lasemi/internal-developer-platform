@@ -281,7 +281,7 @@ services:
         - wget
         - -q
         - -O
-        - -
+        - "-"
         - http://localhost/healthz
       interval: 10s
       timeout: 5s
