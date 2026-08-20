@@ -17,6 +17,9 @@ class WorkflowExecution(BaseModel):
     status: str
     attempt: int
     parent_execution_id: str | None = None
+    service_id: int | None = None
+    service_name: str | None = None
+    owner: str | None = None
     steps: list[WorkflowStep]
     started_at: datetime
     completed_at: datetime | None = None

@@ -48,6 +48,24 @@ class WorkflowExecutionRecord(Base):
         index=True
     )
 
+    service_id = Column(
+        Integer,
+        nullable=True,
+        index=True
+    )
+
+    service_name = Column(
+        String(150),
+        nullable=True,
+        index=True
+    )
+
+    owner = Column(
+        String(150),
+        nullable=True,
+        index=True
+    )
+
     steps = Column(
         JSON,
         nullable=False
