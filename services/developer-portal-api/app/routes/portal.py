@@ -31,6 +31,44 @@ router = APIRouter(
 )
 
 
+@router.get(
+    "/me"
+)
+async def me(
+    authorization: str | None = Header(
+        default=None
+    )
+):
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header required"
+        )
+
+    result = await current_identity(
+        authorization
+    )
+
+    status_code = result[
+        "status_code"
+    ]
+
+    payload = result[
+        "payload"
+    ]
+
+    if status_code >= 400:
+        raise HTTPException(
+            status_code=status_code,
+            detail=payload.get(
+                "detail",
+                payload
+            )
+        )
+
+    return payload
+
+
 @router.get("/status")
 async def status():
     return await platform_status()
@@ -189,7 +227,7 @@ async def provision_service(
             detail="Authorization header required"
         )
 
-    result = await provision_from_portal(
+    result = await authorized_provision_from_portal(
         payload,
         authorization
     )
