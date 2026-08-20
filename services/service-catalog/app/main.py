@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from app.db.database import engine
 from app.routes.catalog import router
+from app.routes.slos import router as slo_router
 
 
 EVENT_PLATFORM_URL = os.getenv(
@@ -18,10 +19,11 @@ EVENT_PLATFORM_URL = os.getenv(
 app = FastAPI(
     title="Internal Developer Platform Service Catalog",
     description="Persistent service inventory and ownership registry.",
-    version="0.4.0"
+    version="0.5.0"
 )
 
 app.include_router(router)
+app.include_router(slo_router)
 
 
 @app.get("/health")
@@ -29,7 +31,7 @@ def health():
     return {
         "status": "ok",
         "service": "service-catalog",
-        "version": "0.4.0"
+        "version": "0.5.0"
     }
 
 

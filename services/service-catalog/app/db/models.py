@@ -1,13 +1,16 @@
 from datetime import datetime
 from datetime import timezone
 
+from sqlalchemy import Boolean
 from sqlalchemy import Column
 from sqlalchemy import DateTime
+from sqlalchemy import Float
 from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import JSON
 from sqlalchemy import Text
 from sqlalchemy import String
+from sqlalchemy import UniqueConstraint
 
 from app.db.database import Base
 
@@ -166,4 +169,92 @@ class OutboxEventRecord(Base):
     dead_lettered_at = Column(
         DateTime(timezone=True),
         nullable=True
+    )
+
+class ServiceSLORecord(Base):
+    __tablename__ = "service_slos"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "service_id",
+            "name",
+            name="uq_service_slos_service_name"
+        ),
+    )
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    service_id = Column(
+        Integer,
+        ForeignKey(
+            "services.id",
+            ondelete="CASCADE"
+        ),
+        nullable=False,
+        index=True
+    )
+
+    name = Column(
+        String(255),
+        nullable=False
+    )
+
+    objective_type = Column(
+        String(50),
+        nullable=False,
+        index=True
+    )
+
+    target = Column(
+        Float,
+        nullable=False
+    )
+
+    window_days = Column(
+        Integer,
+        nullable=False
+    )
+
+    latency_threshold_ms = Column(
+        Integer,
+        nullable=True
+    )
+
+    description = Column(
+        String(1000),
+        nullable=True
+    )
+
+    enabled = Column(
+        Boolean,
+        nullable=False,
+        default=True
+    )
+
+    observed_percentage = Column(
+        Float,
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        )
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(
+            timezone.utc
+        ),
+        onupdate=lambda: datetime.now(
+            timezone.utc
+        )
     )

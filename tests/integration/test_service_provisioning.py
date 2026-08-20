@@ -2449,3 +2449,352 @@ def test_portal_me_rejects_invalid_token():
     )
 
     assert response.status_code == 401
+
+def test_service_slo_error_budget_management():
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = (
+        f"slo-service-{suffix}"
+    )
+
+    create_service = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "SLO integration test service"
+            ),
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create_service.status_code == 201
+
+    service_id = create_service.json()[
+        "id"
+    ]
+
+    create_slo = httpx.post(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos"
+        ),
+        json={
+            "name": "availability",
+            "objective_type": "availability",
+            "target": 99.9,
+            "window_days": 30,
+            "description": (
+                "Production availability SLO"
+            ),
+            "enabled": True,
+            "observed_percentage": 99.95
+        },
+        timeout=10.0
+    )
+
+    assert create_slo.status_code == 201
+
+    slo = create_slo.json()
+
+    slo_id = slo[
+        "id"
+    ]
+
+    assert slo[
+        "target"
+    ] == 99.9
+
+    list_response = httpx.get(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos"
+        ),
+        timeout=10.0
+    )
+
+    assert list_response.status_code == 200
+    assert len(
+        list_response.json()
+    ) == 1
+
+    budget = httpx.get(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos/"
+            f"{slo_id}/error-budget"
+        ),
+        timeout=10.0
+    )
+
+    assert budget.status_code == 200
+
+    budget_payload = budget.json()
+
+    assert abs(
+        budget_payload[
+            "allowed_failure_minutes"
+        ] - 43.2
+    ) < 0.01
+
+    assert budget_payload[
+        "status"
+    ] == "healthy"
+
+    summary = httpx.get(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slo-summary"
+        ),
+        timeout=10.0
+    )
+
+    assert summary.status_code == 200
+
+    summary_payload = summary.json()
+
+    assert summary_payload[
+        "enabled_slos"
+    ] == 1
+
+    assert summary_payload[
+        "healthy"
+    ] == 1
+
+    assert summary_payload[
+        "overall_status"
+    ] == "healthy"
+
+    update = httpx.patch(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos/"
+            f"{slo_id}"
+        ),
+        json={
+            "observed_percentage": 99.89
+        },
+        timeout=10.0
+    )
+
+    assert update.status_code == 200
+
+    exhausted = httpx.get(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos/"
+            f"{slo_id}/error-budget"
+        ),
+        timeout=10.0
+    )
+
+    assert exhausted.status_code == 200
+
+    assert exhausted.json()[
+        "status"
+    ] == "exhausted"
+
+
+def test_service_slo_validation_and_duplicate_conflict():
+    suffix = uuid.uuid4().hex[:8]
+
+    create_service = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": f"slo-validation-{suffix}",
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"slo-validation-{suffix}"
+            ),
+            "description": (
+                "SLO validation test"
+            ),
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create_service.status_code == 201
+
+    service_id = create_service.json()[
+        "id"
+    ]
+
+    invalid_target = httpx.post(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos"
+        ),
+        json={
+            "name": "invalid",
+            "objective_type": "availability",
+            "target": 101,
+            "window_days": 30
+        },
+        timeout=10.0
+    )
+
+    assert invalid_target.status_code == 422
+
+    invalid_latency = httpx.post(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos"
+        ),
+        json={
+            "name": "latency",
+            "objective_type": "latency",
+            "target": 99,
+            "window_days": 30
+        },
+        timeout=10.0
+    )
+
+    assert invalid_latency.status_code == 422
+
+    valid = {
+        "name": "availability",
+        "objective_type": "availability",
+        "target": 99.99,
+        "window_days": 30
+    }
+
+    first = httpx.post(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos"
+        ),
+        json=valid,
+        timeout=10.0
+    )
+
+    assert first.status_code == 201
+
+    duplicate = httpx.post(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos"
+        ),
+        json=valid,
+        timeout=10.0
+    )
+
+    assert duplicate.status_code == 409
+
+    budget = httpx.get(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos/"
+            f"{first.json()['id']}/error-budget"
+        ),
+        timeout=10.0
+    )
+
+    assert budget.status_code == 200
+
+    assert abs(
+        budget.json()[
+            "allowed_failure_minutes"
+        ] - 4.32
+    ) < 0.01
+
+
+def test_slo_transactional_outbox_events():
+    suffix = uuid.uuid4().hex[:8]
+
+    service_name = (
+        f"slo-event-{suffix}"
+    )
+
+    create_service = httpx.post(
+        f"{CATALOG_API}/catalog",
+        json={
+            "name": service_name,
+            "owner": "platform-team",
+            "repository": (
+                "https://github.com/example/"
+                f"{service_name}"
+            ),
+            "description": (
+                "SLO outbox integration test"
+            ),
+            "lifecycle": "created"
+        },
+        timeout=10.0
+    )
+
+    assert create_service.status_code == 201
+
+    service_id = create_service.json()[
+        "id"
+    ]
+
+    create = httpx.post(
+        (
+            f"{CATALOG_API}"
+            f"/catalog/{service_id}/slos"
+        ),
+        json={
+            "name": "availability",
+            "objective_type": "availability",
+            "target": 99.9,
+            "window_days": 30
+        },
+        timeout=10.0
+    )
+
+    assert create.status_code == 201
+
+    outbox = httpx.get(
+        f"{CATALOG_API}/catalog/outbox",
+        params={
+            "limit": 200
+        },
+        timeout=10.0
+    )
+
+    assert outbox.status_code == 200
+
+    matching = [
+        record
+        for record in outbox.json()
+        if (
+            record[
+                "subject"
+            ] == service_name
+            and record[
+                "event_type"
+            ] == "slo.created"
+        )
+    ]
+
+    assert len(
+        matching
+    ) >= 1
+
+
+def test_slo_platform_metrics():
+    response = httpx.get(
+        (
+            f"{CATALOG_API}"
+            "/catalog/slo/metrics"
+        ),
+        timeout=10.0
+    )
+
+    assert response.status_code == 200
+
+    payload = response.json()
+
+    assert "services_with_slos" in payload
+    assert "total_slos" in payload
+    assert "healthy_slos" in payload
+    assert "warning_slos" in payload
+    assert "exhausted_slos" in payload
